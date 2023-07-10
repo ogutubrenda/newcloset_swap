@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "862870287105",
+    "project_id": "newerclosetswap",
+    "storage_bucket": "newerclosetswap.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:862870287105:android:59f1f673b4a2425fd8e100",
+        "android_client_info": {
+          "package_name": "com.example.betterclosetswap"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "862870287105-aml0bon2e75sji4mk7nqhg036km01fv3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDABCPVxR6zbuP2p7UUMyo3GhFjSGyPssU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "862870287105-aml0bon2e75sji4mk7nqhg036km01fv3.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "862870287105-ikhlojln2hg67cbmpv0cia4425polq3b.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.newerclosetswap"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

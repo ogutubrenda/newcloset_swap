@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>862870287105-8krvjk86vpfenbffus64gdmqadlqkdsa.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.862870287105-8krvjk86vpfenbffus64gdmqadlqkdsa</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>862870287105-irq9t26tlsl3kgs45sl50ham1r4f0smr.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyBTcHEjxFKD0LYlVvNf5G8DlTM4rg5gejk</string>
+	<key>GCM_SENDER_ID</key>
+	<string>862870287105</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.betterclosetswap</string>
+	<key>PROJECT_ID</key>
+	<string>newerclosetswap</string>
+	<key>STORAGE_BUCKET</key>
+	<string>newerclosetswap.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:862870287105:ios:497b4a6c12305603d8e100</string>
+</dict>
+</plist>

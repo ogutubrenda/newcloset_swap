@@ -4,7 +4,6 @@ import 'package:betterclosetswap/pages/home.dart';
 import 'package:betterclosetswap/widgets/progress.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:betterclosetswap/widgets/post.dart';
 import 'package:betterclosetswap/widgets/header.dart';
 class Profile extends StatefulWidget {
   final String profileId;
@@ -27,13 +26,13 @@ buildCountColumn(String label, int count){
     children: <Widget>[
       Text(
         count.toString(),
-        style: TextStyle(fontSize: 22.0, fontWeight: FontWeight.bold,), 
+        style: const TextStyle(fontSize: 22.0, fontWeight: FontWeight.bold,), 
       ),
       Container(
-        margin: EdgeInsets.only(top : 4.0),
+        margin: const EdgeInsets.only(top : 4.0),
         child: Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.grey,
             fontSize: 15.0,
             fontWeight: FontWeight.w400,
@@ -49,18 +48,12 @@ editProfile(){
 }
 Container buildButton({required String text, required Function function}){
   return Container(
-    padding: EdgeInsets.only(top: 2.0),
+    padding: const EdgeInsets.only(top: 2.0),
     child: ElevatedButton(
       onPressed: () => function(), 
       child: Container(
         width: 250.0,
         height: 27.0,
-        child: Text(
-          text,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ) ),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Colors.blue,
@@ -69,6 +62,12 @@ Container buildButton({required String text, required Function function}){
           ),
           borderRadius: BorderRadius.circular(5.0)
         ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ) ),
       ),),
   );
 }
@@ -131,10 +130,10 @@ buildProfileButton(){
               ),
               Container(
                 alignment: Alignment.centerLeft,
-                padding: EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.only(top: 12),
                 child: Text(
                    user.username,
-                   style: TextStyle(
+                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16.0,
                    ))
@@ -144,7 +143,7 @@ buildProfileButton(){
                 padding: const EdgeInsets.only(top: 4.0),
                 child: Text(
                    user.displayName,
-                   style: TextStyle(
+                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16.0,
                   ),
@@ -152,7 +151,7 @@ buildProfileButton(){
               ),
               Container(
                 alignment: Alignment.centerLeft,
-                padding: EdgeInsets.only(top: 2.0),
+                padding: const EdgeInsets.only(top: 2.0),
                 child: Text(
                    user.bio,
                    )

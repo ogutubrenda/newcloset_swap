@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:html';
 import 'package:animator/animator.dart';
 import 'package:betterclosetswap/pages/comments.dart';
 import 'package:betterclosetswap/widgets/custom_image.dart';

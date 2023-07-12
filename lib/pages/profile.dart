@@ -1,3 +1,5 @@
+
+
 import 'package:betterclosetswap/models/user.dart';
 import 'package:betterclosetswap/pages/edit_profile.dart';
 import 'package:betterclosetswap/pages/home.dart';
@@ -33,7 +35,8 @@ class _ProfileState extends State<Profile> {
     setState(() {
       isLoading = true;
     });
-    QuerySnapshot snapshot = await postsRef
+
+    QuerySnapshot<Map<String, dynamic>> snapshot = await postsRef
         .doc(widget.profileId)
         .collection('userPosts')
         .orderBy('timestamp', descending: true)
@@ -41,8 +44,10 @@ class _ProfileState extends State<Profile> {
 
     setState(() {
       isLoading = false;
-      postCount = snapshot.docs.length;
-      posts = snapshot.docs.map((document) => Posts.fromDocument(document)).toList();
+      postCount = snapshot.size;
+      posts = snapshot.docs
+          .map((document) => Posts.fromDocument(document))
+          .toList();
     });
   }
 
@@ -71,7 +76,10 @@ class _ProfileState extends State<Profile> {
   }
 
   void editProfile() {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => EditProfile(currentUserId: currentUserId)));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => EditProfile(currentUserId: currentUserId)));
   }
 
   Container buildButton({required String text, required Function function}) {
@@ -91,11 +99,12 @@ class _ProfileState extends State<Profile> {
           ),
           alignment: Alignment.center,
           decoration: BoxDecoration(
+            color: Colors.blue,
+            border: Border.all(
               color: Colors.blue,
-              border: Border.all(
-                color: Colors.blue,
-              ),
-              borderRadius: BorderRadius.circular(5.0)),
+            ),
+            borderRadius: BorderRadius.circular(5.0),
+          ),
         ),
       ),
     );
@@ -109,18 +118,20 @@ class _ProfileState extends State<Profile> {
         function: editProfile,
       );
     } else {
-      return SizedBox.shrink();
+      return Container();
     }
   }
 
   Widget buildProfileHeader() {
-    return FutureBuilder(
+    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       future: usersRef.doc(widget.profileId).get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return CircularProgress();
         }
+
         User user = User.fromDocument(snapshot.data!);
+
         return Padding(
           padding: EdgeInsets.all(16.0),
           child: Column(
@@ -140,9 +151,9 @@ class _ProfileState extends State<Profile> {
                           mainAxisSize: MainAxisSize.max,
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: <Widget>[
-                            buildCountColumn("Posts", postCount),
-                            buildCountColumn("Followers", 0),
-                            buildCountColumn("Following", 0),
+                            buildCountColumn("posts", postCount),
+                            buildCountColumn("followers", 0),
+                            buildCountColumn("following", 0),
                           ],
                         ),
                         Row(
@@ -191,13 +202,28 @@ class _ProfileState extends State<Profile> {
   }
 
   Widget buildProfilePosts() {
-    if (isLoading) {
-      return CircularProgress();
-    }
+  if (isLoading) {
+    return CircularProgress();
+  } else {
     return Column(
-      children: posts,
+      children: posts.map((post) => Posts(
+        postId: post.postId,
+        ownerId: post.ownerId,
+        username: post.username,
+        location: post.location,
+        description: post.description,
+        mediaUrl: post.mediaUrl,
+        likes: post.likes,
+      )).toList(),
     );
   }
+}
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -215,3 +241,4 @@ class _ProfileState extends State<Profile> {
     );
   }
 }
+

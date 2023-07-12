@@ -25,17 +25,20 @@ class Posts extends StatefulWidget {
     required this.likes,
   });
 
-  factory Posts.fromDocument(DocumentSnapshot document) {
-    return Posts(
-      postId: document['postId'],
-      ownerId: document['ownerId'],
-      username: document['username'],
-      location: document['location'],
-      description: document['description'],
-      mediaUrl: document['mediaUrl'],
-      likes: document['likes'],
-    );
-  }
+  factory Posts.fromDocument(DocumentSnapshot<Map<String, dynamic>> document) {
+  final data = document.data()!;
+  return Posts(
+    postId: data['postId'] as String,
+    ownerId: data['ownerId'] as String,
+    username: data['username'] as String,
+    location: data['location'] as String,
+    description: data['description'] as String,
+    mediaUrl: data['mediaUrl'] as String,
+    likes: data['likes'],
+  );
+}
+
+
 
   int getLikeCount() {
     if (likes == null) {

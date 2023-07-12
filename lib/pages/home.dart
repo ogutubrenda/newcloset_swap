@@ -140,6 +140,7 @@ class _HomeState extends State<Home> {
               onPressed: () => logout(),
             ),
             ActivityFeed(),
+            //Search(),
             Upload(currentUser: currentUser!),
             Products(currentUser: currentUser!),
             Profile(profileId: currentUser!.id),

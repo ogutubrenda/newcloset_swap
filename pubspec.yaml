@@ -46,6 +46,8 @@ dependencies:
   path_provider: ^2.0.15
   timeago: ^3.5.0
   uuid: ^3.0.7
+  logger: ^1.1.0
+
 
 dev_dependencies:
   flutter_lints: ^2.0.0

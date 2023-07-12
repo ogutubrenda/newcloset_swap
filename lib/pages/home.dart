@@ -1,18 +1,12 @@
-import 'package:betterclosetswap/pages/products.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
-import 'package:betterclosetswap/pages/activity_feed.dart';
 import 'package:betterclosetswap/pages/create_account.dart';
-import 'package:betterclosetswap/pages/profile.dart';
-import 'package:betterclosetswap/pages/search.dart';
-import 'package:betterclosetswap/pages/timeline.dart';
-import 'package:betterclosetswap/pages/upload.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:betterclosetswap/models/user.dart';
 
-import 'package:betterclosetswap/pages/create_account.dart';
+
 
 final GoogleSignIn googleSignIn = GoogleSignIn();
 final firebase_storage.Reference storageRef =
@@ -20,6 +14,11 @@ final firebase_storage.Reference storageRef =
 final usersRef = FirebaseFirestore.instance.collection('users');
 final postsRef = FirebaseFirestore.instance.collection('posts');
 final productsRef = FirebaseFirestore.instance.collection('products');
+final commentsRef = FirebaseFirestore.instance.collection('comments');
+final activityFeedRef = FirebaseFirestore.instance.collection('feed');
+final followersRef = FirebaseFirestore.instance.collection('followers');
+final followingRef = FirebaseFirestore.instance.collection('following');
+final timelineRef = FirebaseFirestore.instance.collection('timeline');
 final DateTime timestamp = DateTime.now();
 User? currentUser;
 
@@ -52,9 +51,9 @@ class _HomeState extends State<Home> {
     });
   }
 
-  handleSignIn(GoogleSignInAccount? account) {
+  handleSignIn(GoogleSignInAccount? account ) async {
     if (account != null) {
-      createUserInFirestore();
+    await   createUserInFirestore();
       setState(() {
         isAuth = true;
       });
@@ -69,9 +68,10 @@ class _HomeState extends State<Home> {
     final GoogleSignInAccount? user = googleSignIn.currentUser;
     DocumentSnapshot document = await usersRef.doc(user?.id).get();
     if (!document.exists) {
+      // ignore: use_build_context_synchronously
       final username = await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => CreateAccount()),
+        MaterialPageRoute(builder: (context) => const CreateAccount()),
       );
 
       usersRef.doc(user?.id).set({
@@ -84,12 +84,17 @@ class _HomeState extends State<Home> {
         "timestamp": timestamp,
       });
 
+      //make the user their own follower to include their post in their timeline
+      await followersRef
+      .doc(user?.id)
+      .collection('userFollowers')
+      .doc(user?.id)
+      .set(() as Map<String, dynamic>);
+
       document = await usersRef.doc(user?.id).get();
     }
 
     currentUser = User.fromDocument(document);
-    print(currentUser);
-    print(currentUser!.username);
 
     setState(() {
       isAuth = true;
@@ -110,7 +115,7 @@ class _HomeState extends State<Home> {
     googleSignIn.signOut().then((_) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => CreateAccount()),
+        MaterialPageRoute(builder: (context) => const CreateAccount()),
       );
     });
   }
@@ -118,7 +123,7 @@ class _HomeState extends State<Home> {
   onTap(int pageIndex) {
     pageController.animateToPage(
       pageIndex,
-      duration: Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
   }
@@ -126,33 +131,19 @@ class _HomeState extends State<Home> {
   Scaffold buildAuthScreen() {
     if (currentUser == null) {
       // Handle case when currentUser is null (e.g., show loading indicator)
-      return Scaffold(
+      return const Scaffold(
         body: Center(
           child: CircularProgressIndicator(),
         ),
       );
     } else {
       return Scaffold(
-        body: PageView(
-          children: <Widget>[
-            ElevatedButton(
-              child: Text('Logout'),
-              onPressed: () => logout(),
-            ),
-            ActivityFeed(),
-            Upload(currentUser: currentUser!),
-            Products(currentUser: currentUser!),
-            Profile(profileId: currentUser!.id),
-          ],
-          controller: pageController,
-          onPageChanged: onPageChanged,
-          physics: NeverScrollableScrollPhysics(),
-        ),
+        
         bottomNavigationBar: CupertinoTabBar(
           currentIndex: pageIndex,
           onTap: onTap,
           activeColor: Theme.of(context).primaryColor,
-          items: [
+          items: const [
             BottomNavigationBarItem(icon: Icon(Icons.whatshot)),
             BottomNavigationBarItem(icon: Icon(Icons.notifications_active)),
             BottomNavigationBarItem(icon: Icon(Icons.photo_camera)),
@@ -173,7 +164,7 @@ class _HomeState extends State<Home> {
   Scaffold buildUnAuthScreen() {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
@@ -188,7 +179,7 @@ class _HomeState extends State<Home> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
-            Text(
+            const Text(
               'ClosetSwap',
               style: TextStyle(
                 fontFamily: "Signatra",
@@ -201,7 +192,7 @@ class _HomeState extends State<Home> {
               child: Container(
                 width: 260.0,
                 height: 60.0,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   image: DecorationImage(
                     image: AssetImage('assets/google_signin.jpg'),
                     fit: BoxFit.cover,

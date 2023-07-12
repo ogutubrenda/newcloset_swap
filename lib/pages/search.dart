@@ -9,13 +9,14 @@ import 'package:betterclosetswap/widgets/progress.dart';
 
 import '../models/user.dart';
 class Search extends StatefulWidget {
-  const Search(Future<QuerySnapshot<Object?>> searchResultsFuture, {super.key});
+  const Search({Key? key}) : super(key: key);
+
 
   @override
   State<Search> createState() => _SearchState();
 }
 
-class _SearchState extends State<Search> {
+class _SearchState extends State<Search> with AutomaticKeepAliveClientMixin<Search> {
   TextEditingController searchController =TextEditingController();
 late Future<QuerySnapshot> searchResultsFuture;
 
@@ -40,7 +41,7 @@ return AppBar(
     decoration: InputDecoration(
       hintText: "Search for a user",
       filled: true,
-      prefixIcon: Icon(
+      prefixIcon: const Icon(
         Icons.account_box,
         size: 28.0,
       ),
@@ -59,14 +60,13 @@ return AppBar(
   Container buildNoContent(){
     final Orientation orientation =MediaQuery.of(context).orientation;
     return Container(
-      child: Center(
         child:  Center(
           child: ListView(
             shrinkWrap: true,
             children:<Widget>[
               SvgPicture.asset('assets/image2vector.svg', 
               height: orientation == Orientation.portrait?300.0 : 200.0),
-              Text("Find user", textAlign: TextAlign.center, style:
+              const Text("Find user", textAlign: TextAlign.center, style:
               TextStyle(
                  color: Colors.amber,
                  fontStyle: FontStyle.italic,
@@ -74,10 +74,12 @@ return AppBar(
                  fontSize: 60.0,
                  )
               )
-            ],)
-        ),)
+            ],
+            ),
+           ),
+        );
 
-    );
+    
 
   }
   buildSearchResults(){
@@ -88,23 +90,27 @@ return AppBar(
           return CircularProgress();
         }
         List<UserResult> searchResults =[];
-        snapshot.data?.docs.forEach((document){
-          User user = User.fromDocument(document);
-          UserResult searchResult = UserResult(user);
-          searchResults.add(searchResult);
+        snapshot.data?.docs.forEach((document) {
+  User user = User.fromDocument(document);
+  UserResult searchResult = UserResult(user);
+  searchResults.add(searchResult);
+});
 
-        }
-        );
         return ListView(
           children: searchResults,
         );
       }
     );
   }
+  
+  bool get wantKeepAlive =>true;
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: buidSearchField(),
+      // ignore: unnecessary_null_comparison
       body: searchResultsFuture == null? buildNoContent(): buildSearchResults(),
     );
   }
@@ -113,7 +119,7 @@ return AppBar(
 class UserResult extends StatelessWidget {
   final User user;
 
-  UserResult(this.user);
+  const UserResult(this.user, {super.key});
   //const UserResult({super.key});
 
   @override
@@ -122,21 +128,23 @@ class UserResult extends StatelessWidget {
       color: Theme.of(context).primaryColor.withOpacity(0.7),
       child: Column(children: <Widget>[
         GestureDetector(
-          onTap:()=>print ('tapped'),
+          onTap:()=> showProfile(context,profileId: user.id ),
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: Colors.grey,
             backgroundImage: CachedNetworkImageProvider(user.photoUrl),
             ),
-            title: Text(user.displayName, style: TextStyle(color:Colors.white, fontWeight: FontWeight.bold,),),
-            subtitle: Text(user.username, style: TextStyle(color: Colors.white,)),
+            title: Text(user.displayName, style: const TextStyle(color:Colors.white, fontWeight: FontWeight.bold,),),
+            subtitle: Text(user.username, style: const TextStyle(color: Colors.white,)),
             ),
           ),
-           Divider(
+           const Divider(
             height:2.0,
             color: Colors.white54,
            ),
       ],)
     );
   }
+  
+  showProfile(BuildContext context, {required String profileId}) {}
 }

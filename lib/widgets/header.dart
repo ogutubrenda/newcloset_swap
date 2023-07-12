@@ -9,6 +9,7 @@ AppBar header(context, {bool  isAppTitle = false, required String titleText, rem
         fontFamily: isAppTitle? "Signatra" : "",
         fontSize: isAppTitle? 30.0 : 20,
       ),
+      overflow: TextOverflow.ellipsis,
       ),
       centerTitle: true,
       backgroundColor: Theme.of(context).hintColor,

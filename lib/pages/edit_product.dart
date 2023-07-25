@@ -1,104 +1,169 @@
 import 'dart:io';
+
 import 'package:betterclosetswap/models/user.dart';
-import 'package:betterclosetswap/pages/home.dart' as H;
 import 'package:betterclosetswap/pages/home.dart';
-//import 'package:betterclosetswap/pages/login_page.dart';
-//import 'package:betterclosetswap/pages/signup_screen.dart';
+import 'package:betterclosetswap/pages/login_page.dart';
 import 'package:betterclosetswap/widgets/progress.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image/image.dart' as Im;
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-//import 'package:google_sign_in/google_sign_in.dart';
+import 'package:uuid/uuid.dart';
 
-class EditProfile extends StatefulWidget {
+class EditProducts extends StatefulWidget {
   final String currentUserId;
-  //final String userId;
+  final String productId;
 
-  EditProfile({
+  EditProducts({
     required this.currentUserId,
+    required this.productId,
   });
 
   @override
-  State<EditProfile> createState() => _EditProfileState();
+  State<EditProducts> createState() => _EditProductsState();
 }
 
-class _EditProfileState extends State<EditProfile> {
+class _EditProductsState extends State<EditProducts> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  TextEditingController displayNameController = TextEditingController();
-  TextEditingController bioController = TextEditingController();
-  bool isLoading = false;
+  TextEditingController descriptionController = TextEditingController();
+  TextEditingController sizeController = TextEditingController();
+  TextEditingController quantityController = TextEditingController();
+  TextEditingController priceController = TextEditingController();
   File? _file;
-
+  bool isLoading = false;
   late User user;
-  bool _bioValid = true;
-  bool _displayNameValid = true;
-  //final GoogleSignIn googleSignIn = GoogleSignIn();
+  bool _descriptionValid = true;
+  bool _sizeValid = true;
+  bool _quantityValid = true;
+  bool _priceValid = true;
+
+  late DocumentSnapshot productDocument;
+  String productId = const Uuid().v4();
 
   @override
   void initState() {
     super.initState();
-    getUser();
+    getProduct();
   }
 
-  getUser() async {
+  getProduct() async {
     setState(() {
       isLoading = true;
     });
-    DocumentSnapshot document = await usersRef.doc(widget.currentUserId).get();
-    user = User.fromDocument(document);
-    displayNameController.text = user.displayName;
-    bioController.text = user.bio;
+    productDocument = await productsRef
+        .doc(widget.currentUserId)
+        .collection('userProducts')
+        .doc(widget.productId)
+        .get();
+
+    if (productDocument.exists) {
+      descriptionController.text = productDocument['description'];
+      sizeController.text = productDocument['size'];
+      quantityController.text = productDocument['quantity'].toString();
+      priceController.text = productDocument['price'].toString();
+    }
+
     setState(() {
       isLoading = false;
     });
   }
 
-  Column buildDisplayNameField() {
+  Column builddescriptionField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Padding(
           padding: EdgeInsets.only(top: 12.0),
           child: Text(
-            "Display Name",
+            "Description",
             style: TextStyle(
               color: Colors.grey,
             ),
           ),
         ),
         TextField(
-          controller: displayNameController,
+          controller: descriptionController,
           decoration: InputDecoration(
-            hintText: "Update Display Name",
-            errorText: _displayNameValid ? null : "Display Name is too short",
+            hintText: "Update Description",
+            errorText: _descriptionValid ? null : "Description is too short",
           ),
         ),
       ],
     );
   }
 
-  Column buildBioField() {
+  Column buildSizeField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Padding(
           padding: EdgeInsets.only(top: 12.0),
           child: Text(
-            "Bio",
+            "Size",
             style: TextStyle(
               color: Colors.grey,
             ),
           ),
         ),
         TextField(
-          controller: bioController,
+          controller: sizeController,
           decoration: InputDecoration(
-            hintText: "Update your bio",
-            errorText: _bioValid ? null : "Your bio is too long",
+            hintText: "Update Size",
+            errorText: _sizeValid ? null : "Description is too short",
+          ),
+        ),
+      ],
+    );
+  }
+
+  Column buildquantityField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.only(top: 12.0),
+          child: Text(
+            "Quantity",
+            style: TextStyle(
+              color: Colors.grey,
+            ),
+          ),
+        ),
+        TextField(
+          controller: quantityController,
+          keyboardType: TextInputType.number, // Set keyboard type to number
+          decoration: InputDecoration(
+            hintText: "Update Quantity",
+            errorText: _quantityValid ? null : "Quantity is too long",
+          ),
+        ),
+      ],
+    );
+  }
+
+  Column buildPriceField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: EdgeInsets.only(top: 12.0),
+          child: Text(
+            "Price",
+            style: TextStyle(
+              color: Colors.grey,
+            ),
+          ),
+        ),
+        TextField(
+          controller: priceController,
+          keyboardType: TextInputType.number, // Set keyboard type to number
+          decoration: InputDecoration(
+            hintText: "Update Price",
+            errorText: _priceValid ? null : "Price is too long",
           ),
         ),
       ],
@@ -109,18 +174,17 @@ class _EditProfileState extends State<EditProfile> {
     final tempDir = await getTemporaryDirectory();
     final path = tempDir.path;
     Im.Image imageFile = Im.decodeImage(_file!.readAsBytesSync())!;
-    final compressedImageFile = File('$path/img_${user.id}.jpg')
+    final compressedImageFile = File('$path/img_$productId.jpg')
       ..writeAsBytesSync(Im.encodeJpg(imageFile, quality: 95));
     setState(() {
       _file = compressedImageFile;
     });
   }
 
-  Future<String?> uploadImage(File imageFile, String currentUserId) async {
+  Future<String?> uploadImage(File imageFile, String productId) async {
     try {
-      final userRef = FirebaseStorage.instance.ref().child('users');
-      UploadTask uploadTask =
-          userRef.child('$currentUserId.jpg').putFile(imageFile);
+      final storageRef = FirebaseStorage.instance.ref().child('products');
+      UploadTask uploadTask = storageRef.child('$productId.jpg').putFile(imageFile);
       TaskSnapshot storageSnapshot = await uploadTask.whenComplete(() => null);
       String downloadUrl = await storageSnapshot.ref.getDownloadURL();
       return downloadUrl;
@@ -129,58 +193,67 @@ class _EditProfileState extends State<EditProfile> {
       return null;
     }
   }
-  
 
-  updateProfileData() async {
+  updateProductData() async {
     setState(() {
-      bioController.text.trim().length < 3 || bioController.text.isEmpty
-          ? _bioValid = false
-          : _bioValid = true;
-
-      displayNameController.text.trim().length > 100
-          ? _displayNameValid = false
-          : _displayNameValid = true;
+      _descriptionValid =
+          descriptionController.text.trim().length >= 3 && descriptionController.text.isNotEmpty;
+      _sizeValid = sizeController.text.trim().isNotEmpty;
+      _quantityValid = quantityController.text.trim().length <= 100;
+      _priceValid = priceController.text.trim().length <= 100;
     });
 
-    if (_bioValid && _displayNameValid) {
+    if (_descriptionValid && _quantityValid && _priceValid && _sizeValid) {
       if (_file != null) {
-        await compressImage(); // Compress the image
-        String? photoUrl = await uploadImage(_file!, widget.currentUserId);
+        String? mediaUrl = await uploadImage(_file!, productId);
 
-        if (photoUrl != null) {
-          // Update the profile data in Firestore
-          await usersRef
+        if (mediaUrl != null) {
+          // Update the 'mediaUrl' field in Firestore
+          await productsRef
               .doc(widget.currentUserId)
+              .collection('userProducts')
+              .doc(widget.productId)
               .update({
-            'bio': bioController.text,
-            'displayName': displayNameController.text,
-            'photoUrl': photoUrl,
+            'description': descriptionController.text,
+            'size': sizeController.text,
+            'quantity': int.tryParse(quantityController.text), // Parse quantity as integer
+            'price': int.tryParse(priceController.text), // Parse price as integer
+            'mediaUrl': mediaUrl,
           });
 
-          final snackBar = SnackBar(content: Text("Profile updated!"));
+          final snackBar = SnackBar(content: Text("Product updated!"));
           ScaffoldMessenger.of(context).showSnackBar(snackBar);
         } else {
-          final snackBar = SnackBar(content: Text("Failed to update profile."));
+          final snackBar = SnackBar(content: Text("Failed to update product."));
           ScaffoldMessenger.of(context).showSnackBar(snackBar);
         }
       } else {
         // If no new image is selected, only update the text fields
-        await usersRef
+        await productsRef
             .doc(widget.currentUserId)
+            .collection('userProducts')
+            .doc(widget.productId)
             .update({
-          'bio': bioController.text,
-          'displayName': displayNameController.text,
+          'description': descriptionController.text,
+          'size': sizeController.text,
+          'quantity': int.tryParse(quantityController.text), // Parse quantity as integer
+          'price': int.tryParse(priceController.text), // Parse price as integer
         });
 
-        final snackBar = SnackBar(content: Text("Profile updated!"));
+        final snackBar = SnackBar(content: Text("Product updated!"));
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
       }
     }
   }
 
-  Future<void> logout() async {
-    // await googleSignIn.signOut();
-    Navigator.push(context, MaterialPageRoute(builder: (context) => Home()));
+  Future<void> delete() async {
+    await productsRef
+        .doc(widget.currentUserId)
+        .collection('userProducts')
+        .doc(widget.productId)
+        .delete();
+    final snackBar = SnackBar(content: Text("Product deleted!"));
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   void handleTakePhoto() async {
@@ -216,7 +289,7 @@ class _EditProfileState extends State<EditProfile> {
       context: context,
       builder: (BuildContext context) {
         return SimpleDialog(
-          title: const Text('Edit Profile Photo'),
+          title: const Text('Edit Item Photo'),
           children: <Widget>[
             SimpleDialogOption(
               padding: const EdgeInsets.all(20),
@@ -248,7 +321,7 @@ class _EditProfileState extends State<EditProfile> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         title: Text(
-          "Edit Profile",
+          "Edit Item",
           style: TextStyle(
             color: Colors.black,
           ),
@@ -285,7 +358,7 @@ class _EditProfileState extends State<EditProfile> {
                             : Container(
                                 decoration: BoxDecoration(
                                   image: DecorationImage(
-                                    image: CachedNetworkImageProvider(user.photoUrl),
+                                    image: CachedNetworkImageProvider(productDocument['mediaUrl']),
                                     fit: BoxFit.cover,
                                   ),
                                 ),
@@ -298,15 +371,17 @@ class _EditProfileState extends State<EditProfile> {
                   padding: EdgeInsets.all(16),
                   child: Column(
                     children: <Widget>[
-                      buildDisplayNameField(),
-                      buildBioField(),
+                      builddescriptionField(),
+                      buildquantityField(),
+                      buildPriceField(),
+                      buildSizeField(),
                     ],
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: updateProfileData,
+                  onPressed: updateProductData,
                   child: Text(
-                    "Update Profile",
+                    "Update Product",
                     style: TextStyle(
                       color: Theme.of(context).primaryColor,
                       fontSize: 20.0,
@@ -317,10 +392,10 @@ class _EditProfileState extends State<EditProfile> {
                 Padding(
                   padding: EdgeInsets.all(16.0),
                   child: ElevatedButton.icon(
-                    onPressed: logout,
+                    onPressed: delete,
                     icon: Icon(Icons.cancel, color: Colors.red),
                     label: Text(
-                      "Logout",
+                      "Delete Product",
                       style: TextStyle(color: Colors.red, fontSize: 20.0),
                     ),
                   ),

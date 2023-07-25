@@ -11,11 +11,15 @@ import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as Im;
-import 'package:uuid/uuid.dart'; 
+import 'package:uuid/uuid.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+
+
 class Upload extends StatefulWidget {
   final User currentUser;
-  //const Upload({super.key});
-  const Upload({super.key, required this.currentUser});
+
+  const Upload({Key? key, required this.currentUser}) : super(key: key);
 
   @override
   State<Upload> createState() => _UploadState();
@@ -24,20 +28,39 @@ class Upload extends StatefulWidget {
 class _UploadState extends State<Upload> with AutomaticKeepAliveClientMixin {
   TextEditingController locationController = TextEditingController();
   TextEditingController captionController = TextEditingController();
-  Uint8List? _file;
+  File? _file;
   bool isUploading = false;
   String postId = const Uuid().v4();
 
-  
-  pickImage(ImageSource source) async {
-  final ImagePicker imagePicker = ImagePicker();
-  XFile? file = await imagePicker.pickImage(source: source);
-  if (file != null) {
-    return await file.readAsBytes();
-  }
-}
+  void handleTakePhoto() async {
+    Navigator.pop(context);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.camera,
+      maxHeight: 675,
+      maxWidth: 960,
+    );
 
-  selectImage(parentContext){
+    if (pickedFile != null) {
+      setState(() {
+        _file = File(pickedFile.path);
+      });
+    }
+  }
+
+  void handleChooseFromGallery() async {
+    Navigator.pop(context);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _file = File(pickedFile.path);
+      });
+    }
+  }
+
+  selectImage(parentContext) {
     return showDialog(
       context: parentContext,
       builder: (BuildContext context) {
@@ -45,102 +68,90 @@ class _UploadState extends State<Upload> with AutomaticKeepAliveClientMixin {
           title: const Text('Create a Post'),
           children: <Widget>[
             SimpleDialogOption(
-                padding: const EdgeInsets.all(20),
-                child: const Text('Take a photo'),
-                onPressed: () async {
-                  Navigator.pop(context);
-                  Uint8List file = await pickImage(ImageSource.camera);
-                  setState(() {
-                    _file = file;
-                  });
-                }),
+              padding: const EdgeInsets.all(20),
+              child: const Text('Take a photo'),
+              onPressed: handleTakePhoto,
+            ),
             SimpleDialogOption(
-                padding: const EdgeInsets.all(20),
-                child: const Text('Choose from Gallery'),
-                onPressed: () async {
-                  Navigator.of(context).pop();
-                  Uint8List file = await pickImage(ImageSource.gallery);
-                  setState(() {
-                    _file = file;
-                  });
-                }),
+              padding: const EdgeInsets.all(20),
+              child: const Text('Choose from Gallery'),
+              onPressed: handleChooseFromGallery,
+            ),
             SimpleDialogOption(
               padding: const EdgeInsets.all(20),
               child: const Text("Cancel"),
               onPressed: () {
                 Navigator.pop(context);
               },
-            )
+            ),
           ],
         );
       },
     );
   }
-  Container buildSplashScreen(){
+
+  Container buildSplashScreen() {
     return Container(
       color: Theme.of(context).hintColor.withOpacity(0.6),
-      child: Column (
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          SvgPicture.asset('assets\image2vector.svg'),
+          SvgPicture.asset('assets/image2vector.svg'),
           Padding(
-            padding: const EdgeInsets.only(top:20.0),
-             
-          child: ElevatedButton(
-  onPressed: ()=> selectImage(context),
-  //color: Colors.blue,
-  style: ElevatedButton.styleFrom(
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8.0),
-    ),
-  ),
-  child: const Text(
-    "Add Post", 
-    style: TextStyle(
-      color: Colors.white,
-      fontSize: 22.0,
-    ),
-    ),
-    
-)
-
+            padding: const EdgeInsets.only(top: 20.0),
+            child: ElevatedButton(
+              onPressed: () => selectImage(context),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.0),
+                ),
+              ),
+              child: const Text(
+                "Add Post",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22.0,
+                ),
+              ),
+            ),
           ),
-         
         ],
-        )
+      ),
     );
   }
-clearImage(){
-  setState((){
-    _file = null;
-  });
-}
-compressImage() async {
-    final tempDir = await getTemporaryDirectory();
-    final path = tempDir.path;
-    Uint8List? imageBytes = _file; // Assuming _file contains the Uint8List image data
 
-    Im.Image? decodedImage = Im.decodeImage(imageBytes!);
-    final compressedImageFile = File('$path/image_$postId.jpg')
-      ..writeAsBytesSync(Im.encodeJpg(decodedImage!, quality: 85));
-
+  clearImage() {
     setState(() {
-      _file = compressedImageFile.readAsBytesSync();
+      _file = null;
     });
   }
 
-  Future <String> uploadImage(Uint8List? file) async {
-    final postRef = storageRef.child("post_$postId.jpg");
-    firebase_storage.UploadTask uploadTask = postRef.putData(file!);
-    firebase_storage.TaskSnapshot storageSnap = await uploadTask.whenComplete(() => null);
-    String downloadUrl = await storageSnap.ref.getDownloadURL();
-    return downloadUrl;
-
-    // Use the downloadUrl as needed
+  compressImage() async {
+    final tempDir = await getTemporaryDirectory();
+    final path = tempDir.path;
+    Im.Image imageFile = Im.decodeImage(_file!.readAsBytesSync())!;
+    final compressedImageFile = File('$path/img_$postId.jpg')
+      ..writeAsBytesSync(Im.encodeJpg(imageFile, quality: 95));
+    setState(() {
+      _file = compressedImageFile;
+    });
   }
 
-  createPostInFirestore({required String mediaUrl, required String location, required String description}) {
-    postsRef
+  Future<String> uploadImage(Uint8List? file) async {
+    final firebase_storage.Reference storageRef =
+        firebase_storage.FirebaseStorage.instance.ref();
+    final uploadTask = storageRef.child("post_$postId.jpg").putData(file!);
+    final snapshot = await uploadTask;
+    final downloadUrl = await snapshot.ref.getDownloadURL();
+    return downloadUrl;
+  }
+
+  createPostInFirestore(
+      {required String mediaUrl,
+      required String location,
+      required String description}) async {
+    await FirebaseFirestore.instance
+        .collection("posts")
         .doc(widget.currentUser.id)
         .collection("userPosts")
         .doc(postId)
@@ -152,155 +163,170 @@ compressImage() async {
       "location": location,
       "timestamp": FieldValue.serverTimestamp(),
       "likes": {},
-      "username" : widget.currentUser.username,
+      "username": widget.currentUser.username,
     });
-}
+  }
 
+  handleSubmit() async {
+    setState(() {
+      isUploading = true;
+    });
+    await compressImage();
+    String mediaUrl = await uploadImage(_file!.readAsBytesSync());
+    createPostInFirestore(
+      mediaUrl: mediaUrl,
+      location: locationController.text,
+      description: captionController.text,
+    );
+    captionController.clear();
+    locationController.clear();
+    setState(() {
+      _file = null;
+      isUploading = false;
+      postId = const Uuid().v4();
+    });
+  }
 
-handleSubmit() async {
-  setState(() {
-    isUploading = true;
-  });
-  await compressImage();
-  String mediaUrl = await uploadImage(_file);
-  createPostInFirestore(
-    mediaUrl: mediaUrl,
-    location: locationController.text,
-    description: captionController.text,
-  );
-  captionController.clear();
-  locationController.clear();
-  setState((){
-    _file = null;
-    isUploading = false;
-    postId = const Uuid().v4();
-  });
-}
-
-  Scaffold buildUploadFom(){
+  Scaffold buildUploadForm() {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: clearImage,
         ),
-        title: const Text("Caption Post",
-        style: TextStyle(color: Colors.black,
-        
-        ),
-        
+        title: const Text(
+          "Caption Post",
+          style: TextStyle(
+            color: Colors.black,
+          ),
         ),
         actions: [
           ElevatedButton(
             onPressed: isUploading ? null : () => handleSubmit(),
             child: const Text(
               "Post",
-              style: TextStyle(color:Colors.blueAccent,
-              fontWeight: FontWeight.bold,
-              fontSize: 20.0,
-              )
+              style: TextStyle(
+                color: Colors.blueAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 20.0,
+              ),
             ),
           ),
         ],
-        
       ),
       body: ListView(
-  children: <Widget>[
-    isUploading? LinearProgress() : const Text(""),
-    Container(
-      height: 220.0,
-      width: MediaQuery.of(context).size.width * 0.8,
-      child: Center(
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Container(
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: MemoryImage(_file!),
-                fit: BoxFit.cover,)),
-
-          ))
-      )
-    ),
-    const Padding(
-      padding: EdgeInsets.only(top: 10.0)),
-      ListTile(
-        leading: CircleAvatar(
-          backgroundImage: CachedNetworkImageProvider(widget.currentUser.photoUrl),
-        ),
-        title: SizedBox(
-          width: 250.0,
-          child: TextField(
-            controller: captionController,
-            decoration: const InputDecoration(
-              hintText: "Write your caption...",
-              border: InputBorder.none,
+        children: <Widget>[
+          isUploading ? LinearProgress() : const Text(""),
+          Container(
+            height: 220.0,
+            width: MediaQuery.of(context).size.width * 0.8,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: FileImage(_file!),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
               ),
-              
-          ),
-        ),
-        ),
-        const Divider(),
-        ListTile(
-          leading: Icon(Icons.pin_drop, color: Colors.amber.shade300, size: 35.0,),
-          title: SizedBox(
-            width: 250.0,
-            child: TextField(
-              controller: locationController,
-              decoration: const InputDecoration(
-                hintText: "Enter the location",
-                border: InputBorder.none,
-              )
             ),
           ),
-        ),
-       Container(
-  width: 200.0,
-  height: 100.0,
-  alignment: Alignment.center,
-  child: ElevatedButton.icon(
-    label: const Text(
-      "Use your current location",
-      style: TextStyle(
-        color: Colors.white,
+          const Padding(padding: EdgeInsets.only(top: 10.0)),
+          ListTile(
+            leading: CircleAvatar(
+              backgroundImage:
+                  CachedNetworkImageProvider(widget.currentUser.photoUrl),
+            ),
+            title: SizedBox(
+              width: 250.0,
+              child: TextField(
+                controller: captionController,
+                decoration: const InputDecoration(
+                  hintText: "Write your caption...",
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(
+              Icons.pin_drop,
+              color: Colors.amberAccent,
+              size: 35.0,
+            ),
+            title: SizedBox(
+              width: 250.0,
+              child: TextField(
+                controller: locationController,
+                decoration: const InputDecoration(
+                  hintText: "Enter the location",
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ),
+          Container(
+            width: 200.0,
+            height: 100.0,
+            alignment: Alignment.center,
+            child: ElevatedButton.icon(
+              label: const Text(
+                "Use your current location",
+                style: TextStyle(
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30.0),
+                ),
+                backgroundColor: Colors.indigo.shade900,
+              ),
+              onPressed: getUserLocation,
+              icon: const Icon(
+                Icons.my_location,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
       ),
-    ),
-    style: ElevatedButton.styleFrom(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30.0),
-      ), backgroundColor: Colors.indigo.shade900,
-    ),
-    onPressed: () => getUserLocation,
-    icon: const Icon(
-      Icons.my_location,
-      color: Colors.white,
-    ),
-  ),
-)
-  ],
-),
-
     );
   }
-  
 
-
-
-getUserLocation() async {
-  //List<Placemark> placemarks = await Geolocator().placemarkFromCoordinates(position.latitude, position.longitude);
- // Placemark placemark = placemarks[0];
-  //String completeAddress = placemark.name! + ", " + placemark.subLocality! + ", " + placemark.locality! + ", " + placemark.administrativeArea! + ", " + placemark.country!;
-  //print(completeAddress);
-  //String formattedAddress = "${placemark.subLocality}, ${placemark.locality}, ${placemark.administrativeArea}, ${placemark.country}";
-  //print(formattedAddress);
+  getUserLocation() async {
+  try {
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+    List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude, position.longitude);
+    if (placemarks != null && placemarks.isNotEmpty) {
+      Placemark placemark = placemarks.first;
+      String completeAddress =
+          "${placemark.name}, ${placemark.subLocality}, ${placemark.locality}, ${placemark.administrativeArea}, ${placemark.country}";
+      print(completeAddress);
+      String formattedAddress =
+          "${placemark.subLocality}, ${placemark.locality}, ${placemark.administrativeArea}, ${placemark.country}";
+      print(formattedAddress);
+    } else {
+      print("No placemarks found.");
+    }
+  } catch (e) {
+    print('Error getting user location: $e');
+  }
 }
 
-@override
+
+  @override
   bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return _file == null ? buildSplashScreen(): buildUploadFom();
+    return _file == null ? buildSplashScreen() : buildUploadForm();
   }
 }

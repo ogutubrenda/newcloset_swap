@@ -7,19 +7,19 @@ import 'package:flutter/material.dart';
 import 'package:betterclosetswap/pages/home.dart';
 
 class PostScreen extends StatelessWidget {
-  final String userid;
+  final String userId;
   final String postId;
 
   const PostScreen({
     Key? key,
-    required this.userid,
-    required this.postId,
+    required this.userId,
+    required this.postId, 
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot>(
-      future: postsRef.doc(userid).collection('userPosts').doc(postId).get(),
+      future: postsRef.doc(userId).collection('userPosts').doc(postId).get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return CircularProgress();

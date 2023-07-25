@@ -7,36 +7,72 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
+import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as Im;
 import 'package:uuid/uuid.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class Products extends StatefulWidget {
   final User currentUser;
 
-  Products({required this.currentUser});
+  const Products({Key? key, required this.currentUser}) : super(key: key);
 
   @override
   State<Products> createState() => _ProductsState();
 }
 
-class _ProductsState extends State<Products> {
-  TextEditingController locationController = TextEditingController();
+class _ProductsState extends State<Products>
+    with AutomaticKeepAliveClientMixin {
   TextEditingController captionController = TextEditingController();
-  Uint8List? _file;
+  TextEditingController priceController = TextEditingController();
+  TextEditingController quantityController = TextEditingController(); // Added quantityController
+  File? _file;
   bool isUploading = false;
-  String productId= const Uuid().v4();
-  int price = 0;
-  String size = '';
-  List<String> sizeOptions = ['S', 'M', 'L'];
-  String? selectedSizeOption;
+  String productId = const Uuid().v4();
+  String selectedSize = "M";
+  String selectedCategory = "Men";
+  String selectedType = "Shirt";
 
-  pickImage(ImageSource source) async {
-    final ImagePicker imagePicker = ImagePicker();
-    XFile? file = await imagePicker.pickImage(source: source);
-    if (file != null) {
-      return await file.readAsBytes();
+  List<String> sizes = ["S", "M", "L", "XL", "XS"];
+  List<String> categories = ["Men", "Women", "Children", "Accessories"];
+  List<String> types = [
+    "Shirt",
+    "Trouser",
+    "T-shirt",
+    "Jean Trousers",
+    "Jean Shorts",
+    "Sweater",
+    "Hoody"
+  ];
+
+  void handleTakePhoto() async {
+    Navigator.pop(context);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.camera,
+      maxHeight: 675,
+      maxWidth: 960,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _file = File(pickedFile.path);
+      });
+    }
+  }
+
+  void handleChooseFromGallery() async {
+    Navigator.pop(context);
+    final pickedFile = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _file = File(pickedFile.path);
+      });
     }
   }
 
@@ -45,29 +81,17 @@ class _ProductsState extends State<Products> {
       context: parentContext,
       builder: (BuildContext context) {
         return SimpleDialog(
-          title: const Text('Post an item'),
+          title: const Text('Create a Post'),
           children: <Widget>[
             SimpleDialogOption(
               padding: const EdgeInsets.all(20),
               child: const Text('Take a photo'),
-              onPressed: () async {
-                Navigator.pop(context);
-                Uint8List file = await pickImage(ImageSource.camera);
-                setState(() {
-                  _file = file;
-                });
-              },
+              onPressed: handleTakePhoto,
             ),
             SimpleDialogOption(
               padding: const EdgeInsets.all(20),
               child: const Text('Choose from Gallery'),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                Uint8List file = await pickImage(ImageSource.gallery);
-                setState(() {
-                  _file = file;
-                });
-              },
+              onPressed: handleChooseFromGallery,
             ),
             SimpleDialogOption(
               padding: const EdgeInsets.all(20),
@@ -88,6 +112,7 @@ class _ProductsState extends State<Products> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
+          SvgPicture.asset('assets/image2vector.svg'),
           Padding(
             padding: const EdgeInsets.only(top: 20.0),
             child: ElevatedButton(
@@ -98,7 +123,7 @@ class _ProductsState extends State<Products> {
                 ),
               ),
               child: const Text(
-                "Add Product",
+                "Add an Item",
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 22.0,
@@ -120,42 +145,48 @@ class _ProductsState extends State<Products> {
   compressImage() async {
     final tempDir = await getTemporaryDirectory();
     final path = tempDir.path;
-    Uint8List? imageBytes = _file;
-
-    Im.Image? decodedImage = Im.decodeImage(imageBytes!);
-    final compressedImageFile = File('$path/image_$productId.jpg')
-      ..writeAsBytesSync(Im.encodeJpg(decodedImage!, quality: 85));
-
+    Im.Image imageFile = Im.decodeImage(_file!.readAsBytesSync())!;
+    final compressedImageFile =
+        File('$path/img_$productId.jpg')..writeAsBytesSync(Im.encodeJpg(imageFile, quality: 95));
     setState(() {
-      _file = compressedImageFile.readAsBytesSync();
+      _file = compressedImageFile;
     });
   }
 
-  Future<String> uploadImage(Uint8List? file) async {
-    final postRef = storageRef.child("post_$productId.jpg");
-    firebase_storage.UploadTask uploadTask = postRef.putData(file!);
-    firebase_storage.TaskSnapshot storageSnap = await uploadTask.whenComplete(() => null);
-    String downloadUrl = await storageSnap.ref.getDownloadURL();
+  Future<String> productImage(Uint8List? file) async {
+    final firebase_storage.Reference storageRef =
+        firebase_storage.FirebaseStorage.instance.ref();
+    final productTask =
+        storageRef.child("post_$productId.jpg").putData(file!);
+    final snapshot = await productTask;
+    final downloadUrl = await snapshot.ref.getDownloadURL();
     return downloadUrl;
   }
 
-  createPostInFirestore({required String mediaUrl, required String location, required String description}) {
-    String productId = const Uuid().v4();
-    productsRef
-    .doc(widget.currentUser.id)
-    .collection("userProducts")
-    .doc(productId)
-    .set({
+  createProductInFirestore({
+    required String mediaUrl,
+    required String description,
+    required int price,
+    required int quantity,
+  }) async {
+    await FirebaseFirestore.instance
+        .collection("products")
+        .doc(widget.currentUser.id)
+        .collection("userProducts")
+        .doc(productId)
+        .set({
       "productId": productId,
       "ownerId": widget.currentUser.id,
       "mediaUrl": mediaUrl,
       "description": description,
-      "location": location,
+      "price": price,
+      "quantity": quantity,
+      "size": selectedSize,
+      "category": selectedCategory,
+      "type": selectedType,
       "timestamp": FieldValue.serverTimestamp(),
       "likes": {},
       "username": widget.currentUser.username,
-      "price": price,
-      "size": size,
     });
   }
 
@@ -164,18 +195,20 @@ class _ProductsState extends State<Products> {
       isUploading = true;
     });
     await compressImage();
-    String mediaUrl = await uploadImage(_file);
-    createPostInFirestore(
+    String mediaUrl = await productImage(_file!.readAsBytesSync());
+    createProductInFirestore(
       mediaUrl: mediaUrl,
-      location: locationController.text,
       description: captionController.text,
+      price: int.parse(priceController.text),
+      quantity: int.parse(quantityController.text), // Get quantity from the text field
     );
     captionController.clear();
-    locationController.clear();
+    priceController.clear();
+    quantityController.clear();
     setState(() {
       _file = null;
       isUploading = false;
-      productId= const Uuid().v4();
+      productId = const Uuid().v4();
     });
   }
 
@@ -194,7 +227,7 @@ class _ProductsState extends State<Products> {
         ),
         actions: [
           ElevatedButton(
-            onPressed: isUploading ? null : handleSubmit,
+            onPressed: isUploading ? null : () => handleSubmit(),
             child: const Text(
               "Post",
               style: TextStyle(
@@ -218,7 +251,7 @@ class _ProductsState extends State<Products> {
                 child: Container(
                   decoration: BoxDecoration(
                     image: DecorationImage(
-                      image: MemoryImage(_file!),
+                      image: FileImage(_file!),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -229,14 +262,15 @@ class _ProductsState extends State<Products> {
           const Padding(padding: EdgeInsets.only(top: 10.0)),
           ListTile(
             leading: CircleAvatar(
-              backgroundImage: CachedNetworkImageProvider(widget.currentUser.photoUrl),
+              backgroundImage:
+                  CachedNetworkImageProvider(widget.currentUser.photoUrl),
             ),
-            title: Container(
+            title: SizedBox(
               width: 250.0,
               child: TextField(
                 controller: captionController,
                 decoration: const InputDecoration(
-                  hintText: "Write your caption...",
+                  hintText: "Write a description...",
                   border: InputBorder.none,
                 ),
               ),
@@ -244,116 +278,129 @@ class _ProductsState extends State<Products> {
           ),
           const Divider(),
           ListTile(
-            leading: Icon(
-              Icons.pin_drop,
-              color: Colors.amber.shade300,
+            leading: const Icon(
+              Icons.attach_money,
+              color: Colors.green,
               size: 35.0,
             ),
-            title: Container(
+            title: SizedBox(
               width: 250.0,
               child: TextField(
-               
-
-                controller: locationController,
+                controller: priceController,
+                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  hintText: "Enter the location",
-                 
-
-                 
-
-                border: InputBorder.none,
+                  hintText: "Enter the price",
+                  border: InputBorder.none,
+                ),
               ),
             ),
           ),
-        ),
-        ListTile(
-  leading: Icon(Icons.attach_money, color: Colors.amber.shade300, size: 35.0,),
-  title: SizedBox(
-    width: 250.0,
-    child: TextFormField(
-      onChanged: (value) {
-        setState(() {
-          price = int.tryParse(value) ?? 0;
-        });
-      },
-      keyboardType: TextInputType.number,
-      decoration: const InputDecoration(
-        hintText: "Enter the price",
-        border: InputBorder.none,
-      ),
-    ),
-  ),
-),
-
-        ListTile(
-          leading: Icon(Icons.format_size, color: Colors.amber.shade300, size: 35.0,),
-          title: Container(
-            width: 250.0,
-            child: DropdownButtonFormField<String>(
-              value: selectedSizeOption,
+          ListTile(
+            leading: const Icon(
+              Icons.shopping_bag,
+              color: Colors.orange,
+              size: 35.0,
+            ),
+            title: SizedBox(
+              width: 250.0,
+              child: TextField(
+                controller: quantityController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: "Enter the quantity",
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.accessibility,
+              color: Colors.blue,
+              size: 35.0,
+            ),
+            title: DropdownButtonFormField<String>(
+              value: selectedSize,
+              items: sizes.map((size) {
+                return DropdownMenuItem<String>(
+                  value: size,
+                  child: Text(size),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedSize = value!;
+                });
+              },
               decoration: const InputDecoration(
                 hintText: "Select size",
                 border: InputBorder.none,
               ),
-              onChanged: (value) {
-                setState(() {
-                  selectedSizeOption = value!;
-                  size = value;
-                });
-              },
-              items: sizeOptions.map((option) {
-                return DropdownMenuItem(
-                  value: option,
-                  child: Text(option),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.person,
+              color: Colors.pink,
+              size: 35.0,
+            ),
+            title: DropdownButtonFormField<String>(
+              value: selectedCategory,
+              items: categories.map((category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
                 );
               }).toList(),
-            ),
-          ),
-        ),
-        Container(
-          width: 200.0,
-          height: 100.0,
-          alignment: Alignment.center,
-          child: ElevatedButton.icon(
-            label: const Text(
-              "Use your current location",
-              style: TextStyle(
-                color: Colors.white,
+              onChanged: (value) {
+                setState(() {
+                  selectedCategory = value!;
+                });
+              },
+              decoration: const InputDecoration(
+                hintText: "Select category",
+                border: InputBorder.none,
               ),
             ),
-            style: ElevatedButton.styleFrom(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30.0),
-              ), backgroundColor: Colors.indigo.shade900,
+          ),
+          ListTile(
+            leading: const Icon(
+              Icons.shopping_bag,
+              color: Colors.orange,
+              size: 35.0,
             ),
-            onPressed: getUserLocation,
-            icon: const Icon(
-              Icons.my_location,
-              color: Colors.white,
+            title: DropdownButtonFormField<String>(
+              value: selectedType,
+              items: types.map((type) {
+                return DropdownMenuItem<String>(
+                  value: type,
+                  child: Text(type),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  selectedType = value!;
+                });
+              },
+              decoration: const InputDecoration(
+                hintText: "Select type",
+                border: InputBorder.none,
+              ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   
 
-
-
-getUserLocation() async {
-  //List<Placemark> placemarks = await Geolocator().placemarkFromCoordinates(position.latitude, position.longitude);
- // Placemark placemark = placemarks[0];
-  //String completeAddress = placemark.name! + ", " + placemark.subLocality! + ", " + placemark.locality! + ", " + placemark.administrativeArea! + ", " + placemark.country!;
-  //print(completeAddress);
-  //String formattedAddress = "${placemark.subLocality}, ${placemark.locality}, ${placemark.administrativeArea}, ${placemark.country}";
-  //print(formattedAddress);
-}
-
+  @override
+  bool get wantKeepAlive => true;
 
   @override
-Widget build(BuildContext context) {
-  return _file == null ? buildSplashScreen() : buildProductForm();
-}
+  Widget build(BuildContext context) {
+    super.build(context);
+    return _file == null ? buildSplashScreen() : buildProductForm();
+  }
 }

@@ -1,3 +1,10 @@
+import 'package:betterclosetswap/pages/activity_feed.dart';
+import 'package:betterclosetswap/pages/cart.dart';
+import 'package:betterclosetswap/pages/home_page.dart';
+import 'package:betterclosetswap/pages/products.dart';
+import 'package:betterclosetswap/pages/profile.dart';
+import 'package:betterclosetswap/pages/search.dart';
+import 'package:betterclosetswap/pages/upload.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -12,15 +19,18 @@ final GoogleSignIn googleSignIn = GoogleSignIn();
 final firebase_storage.Reference storageRef =
     firebase_storage.FirebaseStorage.instance.ref();
 final usersRef = FirebaseFirestore.instance.collection('users');
+
 final postsRef = FirebaseFirestore.instance.collection('posts');
 final productsRef = FirebaseFirestore.instance.collection('products');
 final commentsRef = FirebaseFirestore.instance.collection('comments');
 final activityFeedRef = FirebaseFirestore.instance.collection('feed');
 final followersRef = FirebaseFirestore.instance.collection('followers');
+final cartRef= FirebaseFirestore.instance.collection('cart');
 final followingRef = FirebaseFirestore.instance.collection('following');
 final timelineRef = FirebaseFirestore.instance.collection('timeline');
 final DateTime timestamp = DateTime.now();
 User? currentUser;
+
 
 
 class Home extends StatefulWidget {
@@ -65,41 +75,51 @@ class _HomeState extends State<Home> {
   }
 
   createUserInFirestore() async {
-    final GoogleSignInAccount? user = googleSignIn.currentUser;
-    DocumentSnapshot document = await usersRef.doc(user?.id).get();
-    if (!document.exists) {
-      // ignore: use_build_context_synchronously
-      final username = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const CreateAccount()),
-      );
+  final GoogleSignInAccount? user = googleSignIn.currentUser;
+  if (user == null) {
+    // User is null, handle the error
+    print('Error: User is null.');
+    return;
+  }
 
-      usersRef.doc(user?.id).set({
-        "id": user?.id,
-        "username": username,
-        "photoUrl": user?.photoUrl,
-        "email": user?.email,
-        "displayName": user?.displayName,
-        "bio": "",
-        "timestamp": timestamp,
-      });
-
-      //make the user their own follower to include their post in their timeline
-      await followersRef
-      .doc(user?.id)
-      .collection('userFollowers')
-      .doc(user?.id)
-      .set(() as Map<String, dynamic>);
-
-      document = await usersRef.doc(user?.id).get();
+  DocumentSnapshot document = await usersRef.doc(user.id).get();
+  if (!document.exists) {
+    final username = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CreateAccount()),
+    );
+    if (username == null) {
+      // Username is null, handle the error
+      print('Error: Username is null.');
+      return;
     }
 
-    currentUser = User.fromDocument(document);
-
-    setState(() {
-      isAuth = true;
+    usersRef.doc(user.id).set({
+      "id": user.id,
+      "username": username,
+      "photoUrl": user.photoUrl,
+      "email": user.email,
+      "displayName": user.displayName,
+      "bio": "",
+      "timestamp": timestamp,
     });
+
+    document = await usersRef.doc(user.id).get();
   }
+
+  if (!document.exists) {
+    // Document doesn't exist, handle the error
+    print('Error: Document does not exist.');
+    return;
+  }
+
+  currentUser = User.fromDocument(document);
+
+  setState(() {
+    isAuth = true;
+  });
+}
+
 
   @override
   void dispose() {
@@ -107,9 +127,14 @@ class _HomeState extends State<Home> {
     super.dispose();
   }
 
-  login() {
-    googleSignIn.signIn();
+  login() async {
+  try {
+    await googleSignIn.signIn();
+  } catch (error) {
+    print('Error signing in: $error');
   }
+}
+
 
   logout() {
     googleSignIn.signOut().then((_) {
@@ -140,13 +165,14 @@ class _HomeState extends State<Home> {
       return Scaffold(
         body: PageView(
           children: <Widget>[
-            ElevatedButton(
-              child: Text('Logout'),
-              onPressed: () => logout(),
-            ),
+            
+            //HomePage(),
             ActivityFeed(),
             Upload(currentUser: currentUser!),
             Products(currentUser: currentUser!),
+            Cart(currentUser: currentUser!),
+            Search(),
+
             Profile(profileId: currentUser!.id),
           ],
           controller: pageController,
@@ -158,10 +184,12 @@ class _HomeState extends State<Home> {
           onTap: onTap,
           activeColor: Theme.of(context).primaryColor,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.whatshot)),
+            //BottomNavigationBarItem(icon: Icon(Icons.whatshot)),
             BottomNavigationBarItem(icon: Icon(Icons.notifications_active)),
             BottomNavigationBarItem(icon: Icon(Icons.photo_camera)),
             BottomNavigationBarItem(icon: Icon(Icons.photo_camera)),
+            BottomNavigationBarItem(icon: Icon(Icons.shopping_cart)),
+            BottomNavigationBarItem(icon: Icon(Icons.search_rounded)),
             BottomNavigationBarItem(icon: Icon(Icons.account_circle)),
           ],
         ),
@@ -201,7 +229,7 @@ class _HomeState extends State<Home> {
                 color: Colors.white,
               ),
             ),
-            GestureDetector(
+           GestureDetector(
               onTap: login,
               child: Container(
                 width: 260.0,

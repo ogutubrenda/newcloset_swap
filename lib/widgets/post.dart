@@ -1,296 +1,254 @@
 import 'dart:async';
-import 'package:animator/animator.dart';
+
+import 'package:betterclosetswap/models/user.dart';
 import 'package:betterclosetswap/pages/comments.dart';
+import 'package:betterclosetswap/pages/edit_post.dart';
+import 'package:betterclosetswap/pages/home.dart';
 import 'package:betterclosetswap/widgets/custom_image.dart';
+import 'package:betterclosetswap/widgets/progress.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../models/user.dart';
-import '../pages/home.dart';
+import 'package:meta/meta.dart';
 
-// ignore: must_be_immutable
 class Post extends StatefulWidget {
-  final String userId;
+  final String postId;
+  final String ownerId;
   final String username;
-  final String email;
-  final String photoUrl;
-  final String displayName;
-  final String bio;
-  String? ownerId;
-  String? postId;
-  String? description;
-  Map<dynamic, dynamic>? likes;
+  final String location;
+  final String description;
+  final String mediaUrl;
+  final dynamic likes;
 
-  Post({super.key, 
-    required this.userId,
+  Post({
+    required this.postId,
+    required this.ownerId,
     required this.username,
-    required this.email,
-    required this.photoUrl,
-    required this.displayName,
-    required this.bio,
+    required this.location,
+    required this.description,
+    required this.mediaUrl,
+    required this.likes,
   });
 
-  factory Posts.fromDocument(DocumentSnapshot document) {
-    return Posts(
-      postId: document['postId'],
-      ownerId: document['ownerId'],
-      username: document['username'],
-      location: document['location'],
-      description: document['description'],
-      mediaUrl: document['mediaUrl'],
-      likes: document['likes'],
+  factory Post.fromDocument(DocumentSnapshot document) {
+    final data = document.data() as Map<String, dynamic>?;
+
+    if (data == null) {
+      // Handle the case when data is null or empty
+      return Post(
+        postId: '',
+        ownerId: '',
+        username: '',
+        location: '',
+        description: '',
+        mediaUrl: '',
+        likes: {},
+      );
+    }
+
+    return Post(
+      postId: data['postId'] ?? '',
+      ownerId: data['ownerId'] ?? '',
+      username: data['username'] ?? '',
+      location: data['location'] ?? '',
+      description: data['description'] ?? '',
+      mediaUrl: data['mediaUrl'] ?? '',
+      likes: data['likes'] ?? {},
     );
   }
 
-  int getLikeCount(likes) {
+  int getLikeCount() {
     if (likes == null) {
       return 0;
     }
     int count = 0;
     likes.values.forEach((val) {
       if (val == true) {
-        count += 1;
+        count++;
       }
     });
     return count;
   }
 
   @override
-  // ignore: library_private_types_in_public_api, no_logic_in_create_state
   _PostState createState() => _PostState(
-
-        userId: userId,
+        postId: postId,
+        ownerId: ownerId,
         username: username,
-        email: email,
-        photoUrl: photoUrl,
-        displayName: displayName,
-        bio: bio,
-        likeCount: getLikeCount(likes), location: '',
+        location: location,
+        description: description,
+        mediaUrl: mediaUrl,
+        likes: likes,
+        likeCount: getLikeCount(),
+        isLiked: true,
       );
 }
 
 class _PostState extends State<Post> {
-  final String currentUserId = currentUser?.userId ?? '';
-  final String userId;
+  final String currentUserId = currentUser!.id;
+  final String postId;
+  final String ownerId;
   final String username;
-  final String email;
-  final String photoUrl;
-  final String displayName;
-  final String bio;
   final String location;
-  bool showHeart = false;
+  final String description;
+  final String mediaUrl;
   int likeCount;
-  late bool isLiked;
+  Map likes;
+  bool isLiked;
+  bool showHeart = false;
 
-  _PostState( {
-    required this.location,
-    required this.userId,
+  _PostState({
+    required this.postId,
+    required this.ownerId,
     required this.username,
-    required this.email,
-    required this.photoUrl,
-    required this.displayName,
-    required this.bio,
+    required this.location,
+    required this.description,
+    required this.mediaUrl,
+    required this.likes,
     required this.likeCount,
+    required this.isLiked,
   });
-  
-  Object? get ownerId => null;
-  
-  String? get postId => null;
+  void editPost() {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => EditPosts(currentUserId: currentUserId, postId: postId,)));
+  }
+  handleShowDialog() {
+showDialog(
+context: context,
+builder: (BuildContext context) {
+return SimpleDialog(
+          title: const Text('Edit Post?'),
+          children: <Widget>[
+            SimpleDialogOption(
+              padding: const EdgeInsets.all(20),
+              child: const Text('Yes'),
+              onPressed: editPost,
+            ),
+            
+            SimpleDialogOption(
+              padding: const EdgeInsets.all(20),
+              child: const Text("No"),
+              onPressed: () {
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        );
+},
+);
+}
 
-  Widget buildPostHeader() {
+  buildPostHeader() {
     return FutureBuilder(
-      future: usersRef.doc(userId).get(),
+      future: usersRef.doc(ownerId).get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const CircularProgressIndicator();
+          return CircularProgress();
         }
-        User user = User.fromDocument(snapshot.data as DocumentSnapshot<Object?>);
-        bool isPostOwner = currentUserId == ownerId;
+        User user = User.fromDocument(snapshot.data!);
         return ListTile(
           leading: CircleAvatar(
             backgroundImage: CachedNetworkImageProvider(user.photoUrl),
             backgroundColor: Colors.grey,
           ),
           title: GestureDetector(
-            onTap: () => showProfile(context, profileId: user.userId),
             child: Text(
               user.username,
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
           subtitle: Text(location),
-          trailing: isPostOwner
-              ? IconButton(
-                  // ignore: avoid_print
-                  onPressed: () => print(handleDeletePost(context)),
-                  icon: const Icon(Icons.more_vert),
-                )
-              : const Text(''),
+          trailing: IconButton(
+            onPressed:  handleShowDialog,
+            icon: Icon(Icons.more_vert),
+          ),
         );
       },
     );
   }
 
-  handleDeletePost(BuildContext parentContext) {
-    return showDialog(
-      context: parentContext,
-      builder: (context) {
-        return SimpleDialog(
-          title: const Text("Remove this post?"),
-          children: <Widget>[
-            SimpleDialogOption(
-              onPressed: () {
-                Navigator.pop(context);
-                deletePost();
-              },
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: Colors.red),
-              ),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  handleLikePost() {
+    bool _isLiked = likes[currentUserId] == true;
 
-  deletePost() async {
-    postsRef
-        .doc(ownerId as String?)
-        .collection('userPosts')
-        .doc(postId)
-        .get()
-        .then((doc) {
-      if (doc.exists) {
-        doc.reference.delete();
-      }
-    });
-
-    await storageRef.child("post_$postId.jpg").delete();
-
-    QuerySnapshot activityFeedSnapshot = await activityFeedRef
-        .doc(ownerId as String?)
-        .collection("feedItems")
-        .where('postId', isEqualTo: postId)
-        .get();
-    for (var doc in activityFeedSnapshot.docs) {
-      if (doc.exists) {
-        doc.reference.delete();
-      }
-    }
-
-    QuerySnapshot commentsSnapshot = await commentsRef
-        .doc(postId)
-        .collection('comments')
-        .get();
-    for (var doc in commentsSnapshot.docs) {
-      if (doc.exists) {
-        doc.reference.delete();
-      }
-    }
-  }
-
-  void handleLikePost() {
-    bool isLiked = widget.likes?[currentUserId] == true;
-
-    if (isLiked) {
+    if (_isLiked) {
       postsRef
-          .doc(ownerId as String?)
+          .doc(ownerId)
           .collection('userPosts')
           .doc(postId)
           .update({'likes.$currentUserId': false});
-      removeLikeFromActivityFeed();
+          removeLikeFromActivityFeed();
       setState(() {
         likeCount -= 1;
         isLiked = false;
-        widget.likes?[currentUserId] = false;
+        likes[currentUserId] = false;
       });
-    } else {
+    } else if (!_isLiked) {
       postsRef
-          .doc(ownerId as String?)
+          .doc(ownerId)
           .collection('userPosts')
           .doc(postId)
           .update({'likes.$currentUserId': true});
-      addLikeToActivityFeed();
+          addLikeToActivityFeed();
       setState(() {
         likeCount += 1;
         isLiked = true;
-        widget.likes?[currentUserId] = true;
+        likes[currentUserId] = true;
         showHeart = true;
       });
-      Timer(const Duration(milliseconds: 500), () {
+      Timer(Duration(milliseconds: 500), () {
         setState(() {
           showHeart = false;
         });
       });
     }
   }
+  addLikeToActivityFeed(){
+    bool isNotPostOwner = currentUser!= ownerId;
+    if(isNotPostOwner){
+       activityFeedRef
+    .doc(ownerId)
+    .collection("feedItems")
+    .doc(postId)
+    .set({
+      "type":"like",
+      "username":currentUser?.username,
+      "userId": currentUser?.id,
+      "userProfileImg":currentUser?.photoUrl,
+      "postId":postId,
+      "mediaUrl":mediaUrl,
+      "timestamp":timestamp,
 
-  addLikeToActivityFeed() {
-    bool isNotPostOwner = currentUserId != ownerId;
-    if (isNotPostOwner) {
-      activityFeedRef
-          .doc(ownerId as String?)
-          .collection("feedItems")
-          .doc(postId)
-          .set({
-        "type": "like",
-        "username": currentUser?.username,
-        "userId": currentUser?.userId,
-        "userProfileImg": currentUser?.photoUrl,
-        "postId": postId,
-        "photoUrl": photoUrl,
-        "timestamp": timestamp,
-      });
+    });
+  }
     }
+    
+   
+  removeLikeFromActivityFeed(){
+    bool isNotPostOwner = currentUser!= ownerId;
+    if(isNotPostOwner){
+      activityFeedRef
+    .doc(ownerId)
+    .collection("feedItems")
+    .doc(postId)
+    .get().then((doc){
+      if(doc.exists){
+        doc.reference.delete();
+      }
+    });
+    }
+    
   }
 
-  void removeLikeFromActivityFeed() {
-    bool isNotPostOwner = currentUserId != ownerId;
-    if (isNotPostOwner) {
-      activityFeedRef
-          .doc(ownerId as String?)
-          .collection("feedItems")
-          .doc(postId)
-          .get()
-          .then((doc) {
-        if (doc.exists) {
-          doc.reference.delete();
-        }
-      });
-    }
-  }
-
-  Widget buildPostImage() {
+  buildPostImage() {
     return GestureDetector(
       onDoubleTap: handleLikePost,
       child: Stack(
         alignment: Alignment.center,
         children: <Widget>[
-          cachedNetworkImage(photoUrl),
-          showHeart
-              ? Animator(
-                  duration: const Duration(milliseconds: 300),
-                  tween: Tween(begin: 0.8, end: 1.4),
-                  curve: Curves.elasticOut,
-                  cycles: 0,
-                  builder: (context, anim, child) => Transform.scale(
-                    scale: anim.value,
-                    child: const Icon(
-                      Icons.favorite,
-                      size: 80.0,
-                      color: Colors.red,
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
+          cachedNetworkImage(mediaUrl),
+          showHeart ? Icon(Icons.favorite, size: 80.0, color: Colors.red,) : Text("")
         ],
       ),
     );
@@ -302,55 +260,71 @@ class _PostState extends State<Post> {
         Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
-            const Padding(padding: EdgeInsets.only(top: 40.0, left: 20.0)),
+            Padding(padding: EdgeInsets.only(top: 40.0, left: 20.0)),
             GestureDetector(
               onTap: handleLikePost,
               child: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border,
                 size: 28.0,
-                color: Colors.pink,
+                color: Colors.pink.shade700,
               ),
             ),
-            const Padding(padding: EdgeInsets.only(right: 20.0)),
+            Padding(padding: EdgeInsets.only(right: 20.0)),
             GestureDetector(
               onTap: () => showComments(
                 context,
                 postId: postId,
-                ownerId: ownerId as String?,
-                photoUrl: photoUrl,
-              ),
+                ownerId: ownerId,
+                mediaUrl: mediaUrl,),
               child: Icon(
                 Icons.chat,
                 size: 28.0,
-                color: Colors.blue[900],
+                color: Colors.blueGrey,
               ),
             ),
           ],
         ),
         Row(
-  children: <Widget>[
-    Container(
-      margin: const EdgeInsets.only(left: 20.0),
-      child: Text(
-        "$likeCount likes",
-        style: const TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              margin: EdgeInsets.only(left: 20),
+              child: Text(
+                "$likeCount likes",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            
+          ],
         ),
-      ),
-    ),
-  ],
-),
-
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              margin: EdgeInsets.only(left: 20),
+              child: Text(
+                "$username",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(description),
+            )
+          ],
+        ),
       ],
     );
   }
 
-  
-
   @override
   Widget build(BuildContext context) {
-    isLiked = (widget.likes?[currentUserId] == true);
+    isLiked = (likes[currentUserId] == true);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
@@ -360,22 +334,12 @@ class _PostState extends State<Post> {
       ],
     );
   }
-  
-  showProfile(BuildContext context, {required profileId}) {}
 }
-
-void showComments(BuildContext context,
-    {String? postId, String? ownerId, String? photoUrl}) {
+showComments(BuildContext context, {required String postId, required String ownerId, required String mediaUrl}) {
   Navigator.push(
     context,
-    MaterialPageRoute(builder: (context) {
-      return Comments(
-        postId: postId!,
-        postOwnerId: ownerId!,
-        postphotoUrl: photoUrl!,
-      );
-    }),
+    MaterialPageRoute(
+      builder: (context) => Comments(postId: postId, postOwnerId: ownerId, postphotoUrl: mediaUrl,),
+    ),
   );
 }
-
-       

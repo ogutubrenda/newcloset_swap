@@ -7,41 +7,41 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../widgets/progress.dart';
 import 'home.dart';
 
-class Comments extends StatefulWidget {
-  final String postId;
-  final String postOwnerId;
+class CommentsProducts extends StatefulWidget {
+  final String productId;
+  final String productOwnerId;
   final String postphotoUrl;
 
-  Comments({
-    required this.postId,
-    required this.postOwnerId,
-    required this.postphotoUrl, 
+  CommentsProducts({
+    required this.productId,
+    required this.productOwnerId,
+    required this.postphotoUrl, required String productmediaUrl,
   });
 
   @override
-  CommentsState createState() => CommentsState(
-        postId: this.postId,
-        postOwnerId: this.postOwnerId,
+  CommentsProductsState createState() => CommentsProductsState(
+        productId: this.productId,
+        productOwnerId: this.productOwnerId,
         postphotoUrl: this.postphotoUrl,
       );
 }
 
-class CommentsState extends State<Comments> {
+class CommentsProductsState extends State<CommentsProducts> {
   TextEditingController commentController = TextEditingController();
-  final String postId;
-  final String postOwnerId;
+  final String productId;
+  final String productOwnerId;
   final String postphotoUrl;
 
-  CommentsState({
-    required this.postId,
-    required this.postOwnerId,
+  CommentsProductsState({
+    required this.productId,
+    required this.productOwnerId,
     required this.postphotoUrl,
   });
 
   buildComments() {
     return StreamBuilder(
       stream: commentsRef
-          .doc(postId)
+          .doc(productId)
           .collection('comments')
           .orderBy("timestamp", descending: false)
           .snapshots(),
@@ -50,45 +50,38 @@ class CommentsState extends State<Comments> {
           return CircularProgress();
         }
         List<Comment> comments = [];
-snapshot.data?.docs.forEach((doc) {
-  comments.add(Comment.fromDocument(doc));
-});
-return ListView(
-  children: comments.map((comment) => comment.build(context)).toList(),
-);
-
+        snapshot.data?.docs.forEach((doc) {
+          comments.add(Comment.fromDocument(doc));
+        });
+        return ListView(
+          children: comments.map((comment) => comment.build(context)).toList(),
+        );
       },
     );
   }
 
   addComment() {
-    commentsRef
-        .doc(postId)
-        .collection("comments")
-        .add({
-          "username": currentUser?.username,
-          "comment": commentController.text,
-          "timestamp": timestamp,
-          "avatarUrl": currentUser?.photoUrl,
-          "userId": currentUser?.id,
-        });
+    commentsRef.doc(productId).collection("comments").add({
+      "username": currentUser?.username,
+      "comment": commentController.text,
+      "timestamp": FieldValue.serverTimestamp(),
+      "avatarUrl": currentUser?.photoUrl,
+      "userId": currentUser?.id,
+    });
 
-    bool isNotPostOwnerId = widget.postOwnerId != currentUser?.id;
+    bool isNotProductOwnerId = widget.productOwnerId != currentUser?.id;
 
-    if (isNotPostOwnerId) {
-      activityFeedRef
-          .doc(postOwnerId)
-          .collection('feedItems')
-          .add({
-            "type": "comment",
-            "commentData": commentController.text,
-            "timestamp": timestamp,
-            "postId": postId,
-            "userId": currentUser?.id,
-            "username": currentUser?.username,
-            "userProfileImg": currentUser?.photoUrl,
-            "mediaUrl": postphotoUrl,
-          });
+    if (isNotProductOwnerId) {
+      activityFeedRef.doc(productOwnerId).collection('feedItems').add({
+        "type": "comment",
+        "commentData": commentController.text,
+        "timestamp": FieldValue.serverTimestamp(),
+        "productId": productId,
+        "userId": currentUser?.id,
+        "username": currentUser?.username,
+        "userProfileImg": currentUser?.photoUrl,
+        "photoUrl": postphotoUrl,
+      });
     }
 
     commentController.clear();

@@ -9,62 +9,74 @@ import 'package:betterclosetswap/widgets/header.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
 class ActivityFeed extends StatefulWidget {
-  const ActivityFeed({super.key});
+  const ActivityFeed({Key? key});
 
   @override
   State<ActivityFeed> createState() => _ActivityFeedState();
 }
 
 class _ActivityFeedState extends State<ActivityFeed> {
-  getActivityFeed()async{
-    QuerySnapshot snapshot= await activityFeedRef
-    .doc(currentUser!.id)
-    .collection('FeedItems')
-    .orderBy('timestamp', descending:true)
-    .limit(50)
-    .get();
-    List<ActivityFeedItem> feedItems = [];
-    snapshot.docs.forEach((doc) {
-      feedItems.add(ActivityFeedItem.fromDocument(doc));
-      //print('Activity Feed Item: ${doc.data}');
-    }
-    );
+  Future<List<ActivityFeedItem>> getActivityFeed() async {
+    QuerySnapshot snapshot = await activityFeedRef
+        .doc(currentUser?.id)
+        .collection('feedItems')
+        .orderBy('timestamp', descending: true)
+        .limit(50)
+        .get();
 
-    
-  return feedItems;
+    List<ActivityFeedItem> feedItems = [];
+
+    for (QueryDocumentSnapshot doc in snapshot.docs) {
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+
+        print('Activity Feed Item: $data');
+
+        final item = ActivityFeedItem.fromMap(data);
+
+        feedItems.add(item);
+      }
+    }
+
+    return feedItems;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-  backgroundColor: Colors.orange,
-  appBar: header(context, titleText: "Activity Feed"), // Add a comma after context
-  body: Container(
-    child: FutureBuilder(
-      future: getActivityFeed(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return CircularProgress();
-          }
-          return ListView(
-            children: snapshot.data as List<Widget>,
-            );
-        },
-      )
-    ),
+      backgroundColor: Colors.amber.shade600,
+      appBar: header(context, titleText: "Activity"),
+      body: Container(
+        child: FutureBuilder<List<ActivityFeedItem>>(
+          future: getActivityFeed(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return CircularProgress();
+            } else if (snapshot.hasError) {
+              return Text('Error: ${snapshot.error}');
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Text('No activity feed items found.');
+            } else {
+              return ListView.builder(
+                itemCount: snapshot.data!.length,
+                itemBuilder: (context, index) {
+                  ActivityFeedItem item = snapshot.data![index];
+                  return item.build(context);
+                },
+              );
+            }
+          },
+        ),
+      ),
     );
   }
 }
 
-Widget mediaPreview = Container();
-String activityItemText= '';
-
-// ignore: must_be_immutable
 class ActivityFeedItem extends StatelessWidget {
   final String username;
   final String userId;
-  final String type; // 'like', 'follow', 'comment'
-  final String photoUrl;
+  final String type;
+  final String postphotoUrl;
   final String postId;
   final String userProfileImg;
   final String commentData;
@@ -74,39 +86,39 @@ class ActivityFeedItem extends StatelessWidget {
     required this.username,
     required this.userId,
     required this.type,
-    required this.photoUrl,
+    required this.postphotoUrl,
     required this.postId,
     required this.userProfileImg,
     required this.commentData,
     required this.timestamp,
   });
 
-  factory ActivityFeedItem.fromDocument(DocumentSnapshot doc) {
+  factory ActivityFeedItem.fromMap(Map<String, dynamic> data) {
     return ActivityFeedItem(
-      username: doc['username'],
-      userId: doc['userId'],
-      type: doc['type'],
-      postId: doc['postId'],
-      userProfileImg: doc['userProfileImg'],
-      commentData: doc['commentData'],
-      timestamp: doc['timestamp'],
-      photoUrl: doc['photoUrl'],
+      username: data['username'] as String? ?? '',
+      userId: data['userId'] as String? ?? '',
+      type: data['type'] as String? ?? '',
+      postId: data['postId'] as String? ?? '',
+      userProfileImg: data['userProfileImg'] as String? ?? '',
+      commentData: data['commentData'] as String? ?? '',
+      timestamp: data['timestamp'] as Timestamp? ?? Timestamp.now(),
+      postphotoUrl: data['mediaUrl'] as String? ?? '',
     );
   }
 
-  showPost(BuildContext context) {
+  void showPost(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => PostScreen(
-          postId: postId,
-          userid: userId,
-        ),
+        builder: (context) => PostScreen(postId: postId, userId: userId),
       ),
     );
   }
 
-  configureMediaPreview(BuildContext context) {
+  Widget mediaPreview = Container();
+  String activityItemText = '';
+
+  void configureMediaPreview(BuildContext context) {
     if (type == "like" || type == 'comment') {
       mediaPreview = GestureDetector(
         onTap: () => showPost(context),
@@ -119,7 +131,7 @@ class ActivityFeedItem extends StatelessWidget {
               decoration: BoxDecoration(
                 image: DecorationImage(
                   fit: BoxFit.cover,
-                  image: CachedNetworkImageProvider(photoUrl),
+                  image: CachedNetworkImageProvider(postphotoUrl),
                 ),
               ),
             ),
@@ -127,16 +139,8 @@ class ActivityFeedItem extends StatelessWidget {
         ),
       );
     } else {
-      mediaPreview = Text('');
+      mediaPreview = Container();
     }
-  }
-
-  String activityItemText = '';
-
-  @override
-  Widget build(BuildContext context) {
-    configureMediaPreview(context);
-
     if (type == 'like') {
       activityItemText = "liked your post";
     } else if (type == 'follow') {
@@ -146,55 +150,42 @@ class ActivityFeedItem extends StatelessWidget {
     } else {
       activityItemText = "Error: Unknown type '$type'";
     }
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: 2.0),
-      child: Container(
-        color: Colors.white54,
-        child: ListTile(
-          title: GestureDetector(
-            onTap: () => showProfile(context, profileId: userId),
-            child: RichText(
-              overflow: TextOverflow.ellipsis,
-              text: TextSpan(
-                style: TextStyle(
-                  fontSize: 14.0,
-                  color: Colors.black,
-                ),
-                children: [
-                  TextSpan(
-                    text: username,
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  TextSpan(
-                    text: ' $activityItemText',
-                  ),
-                ],
-              ),
-            ),
-          ),
-          leading: CircleAvatar(
-            backgroundImage: CachedNetworkImageProvider(userProfileImg),
-          ),
-          subtitle: Text(
-            timeago.format(timestamp.toDate()),
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: mediaPreview,
-        ),
-      ),
-    );
   }
 
-  void showProfile(BuildContext context, {required String profileId}) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => Profile(profileId: profileId),
+  @override
+  Widget build(BuildContext context) {
+    configureMediaPreview(context);
+
+    return ListTile(
+      title: GestureDetector(
+        onTap: () {},
+        child: RichText(
+          overflow: TextOverflow.ellipsis,
+          text: TextSpan(
+            style: TextStyle(
+              fontSize: 14.0,
+              color: Colors.black,
+            ),
+            children: [
+              TextSpan(
+                text: username,
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              TextSpan(
+                text: ' $activityItemText',
+              ),
+            ],
+          ),
+        ),
       ),
+      leading: CircleAvatar(
+        backgroundImage: CachedNetworkImageProvider(userProfileImg),
+      ),
+      subtitle: Text(
+        timeago.format(timestamp.toDate()),
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: mediaPreview,
     );
   }
 }
-
-
-

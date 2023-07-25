@@ -1,104 +1,108 @@
 import 'dart:io';
 import 'package:betterclosetswap/models/user.dart';
-import 'package:betterclosetswap/pages/home.dart' as H;
 import 'package:betterclosetswap/pages/home.dart';
-//import 'package:betterclosetswap/pages/login_page.dart';
-//import 'package:betterclosetswap/pages/signup_screen.dart';
+import 'package:betterclosetswap/pages/login_page.dart';
 import 'package:betterclosetswap/widgets/progress.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image/image.dart' as Im;
+import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
-//import 'package:google_sign_in/google_sign_in.dart';
+import 'package:uuid/uuid.dart';
 
-class EditProfile extends StatefulWidget {
+class EditPosts extends StatefulWidget {
   final String currentUserId;
-  //final String userId;
+  final String postId;
 
-  EditProfile({
+  EditPosts({
     required this.currentUserId,
+    required this.postId,
   });
 
   @override
-  State<EditProfile> createState() => _EditProfileState();
+  State<EditPosts> createState() => _EditPostsState();
 }
 
-class _EditProfileState extends State<EditProfile> {
+class _EditPostsState extends State<EditPosts> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  TextEditingController displayNameController = TextEditingController();
-  TextEditingController bioController = TextEditingController();
-  bool isLoading = false;
+  TextEditingController captionController = TextEditingController();
+  TextEditingController locationController = TextEditingController();
   File? _file;
-
+  bool isLoading = false;
   late User user;
-  bool _bioValid = true;
-  bool _displayNameValid = true;
+  bool _captionValid = true;
+  bool _locationValid = true;
   //final GoogleSignIn googleSignIn = GoogleSignIn();
+  late DocumentSnapshot postDocument;
+  String postId = const Uuid().v4();
 
   @override
   void initState() {
     super.initState();
-    getUser();
+    getPost();
   }
 
-  getUser() async {
+  getPost() async {
     setState(() {
       isLoading = true;
     });
-    DocumentSnapshot document = await usersRef.doc(widget.currentUserId).get();
-    user = User.fromDocument(document);
-    displayNameController.text = user.displayName;
-    bioController.text = user.bio;
+    postDocument = await postsRef
+        .doc(widget.currentUserId)
+        .collection('userPosts')
+        .doc(widget.postId)
+        .get();
+    captionController.text = postDocument['description'];
+    locationController.text = postDocument['location'];
     setState(() {
       isLoading = false;
     });
   }
 
-  Column buildDisplayNameField() {
+  Column buildCaptionField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Padding(
           padding: EdgeInsets.only(top: 12.0),
           child: Text(
-            "Display Name",
+            "Caption",
             style: TextStyle(
               color: Colors.grey,
             ),
           ),
         ),
         TextField(
-          controller: displayNameController,
+          controller: captionController,
           decoration: InputDecoration(
-            hintText: "Update Display Name",
-            errorText: _displayNameValid ? null : "Display Name is too short",
+            hintText: "Update Caption",
+            errorText: _captionValid ? null : "Caption is too short",
           ),
         ),
       ],
     );
   }
 
-  Column buildBioField() {
+  Column buildLocationField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Padding(
           padding: EdgeInsets.only(top: 12.0),
           child: Text(
-            "Bio",
+            "Location",
             style: TextStyle(
               color: Colors.grey,
             ),
           ),
         ),
         TextField(
-          controller: bioController,
+          controller: locationController,
           decoration: InputDecoration(
-            hintText: "Update your bio",
-            errorText: _bioValid ? null : "Your bio is too long",
+            hintText: "Update Location",
+            errorText: _locationValid ? null : "Location is too long",
           ),
         ),
       ],
@@ -109,18 +113,17 @@ class _EditProfileState extends State<EditProfile> {
     final tempDir = await getTemporaryDirectory();
     final path = tempDir.path;
     Im.Image imageFile = Im.decodeImage(_file!.readAsBytesSync())!;
-    final compressedImageFile = File('$path/img_${user.id}.jpg')
+    final compressedImageFile = File('$path/img_$postId.jpg')
       ..writeAsBytesSync(Im.encodeJpg(imageFile, quality: 95));
     setState(() {
       _file = compressedImageFile;
     });
   }
 
-  Future<String?> uploadImage(File imageFile, String currentUserId) async {
+  Future<String?> uploadImage(File imageFile, String postId) async {
     try {
-      final userRef = FirebaseStorage.instance.ref().child('users');
-      UploadTask uploadTask =
-          userRef.child('$currentUserId.jpg').putFile(imageFile);
+      final storageRef = FirebaseStorage.instance.ref().child('posts');
+      UploadTask uploadTask = storageRef.child('$postId.jpg').putFile(imageFile);
       TaskSnapshot storageSnapshot = await uploadTask.whenComplete(() => null);
       String downloadUrl = await storageSnapshot.ref.getDownloadURL();
       return downloadUrl;
@@ -129,59 +132,65 @@ class _EditProfileState extends State<EditProfile> {
       return null;
     }
   }
-  
 
-  updateProfileData() async {
+  updatePostData() async {
     setState(() {
-      bioController.text.trim().length < 3 || bioController.text.isEmpty
-          ? _bioValid = false
-          : _bioValid = true;
+      captionController.text.trim().length < 3 || captionController.text.isEmpty
+          ? _captionValid = false
+          : _captionValid = true;
 
-      displayNameController.text.trim().length > 100
-          ? _displayNameValid = false
-          : _displayNameValid = true;
+      locationController.text.trim().length > 100 ? _locationValid = false : _locationValid = true;
     });
 
-    if (_bioValid && _displayNameValid) {
+    if (_captionValid && _locationValid) {
       if (_file != null) {
-        await compressImage(); // Compress the image
-        String? photoUrl = await uploadImage(_file!, widget.currentUserId);
+        String? mediaUrl = await uploadImage(_file!, postId);
 
-        if (photoUrl != null) {
-          // Update the profile data in Firestore
-          await usersRef
+        if (mediaUrl != null) {
+          // Update the 'mediaUrl' field in Firestore
+          await postsRef
               .doc(widget.currentUserId)
+              .collection('userPosts')
+              .doc(widget.postId)
               .update({
-            'bio': bioController.text,
-            'displayName': displayNameController.text,
-            'photoUrl': photoUrl,
+            'description': captionController.text,
+            'location': locationController.text,
+            'mediaUrl': mediaUrl,
           });
 
-          final snackBar = SnackBar(content: Text("Profile updated!"));
+          final snackBar = SnackBar(content: Text("Post updated!"));
           ScaffoldMessenger.of(context).showSnackBar(snackBar);
         } else {
-          final snackBar = SnackBar(content: Text("Failed to update profile."));
+          final snackBar = SnackBar(content: Text("Failed to update post."));
           ScaffoldMessenger.of(context).showSnackBar(snackBar);
         }
       } else {
         // If no new image is selected, only update the text fields
-        await usersRef
+        await postsRef
             .doc(widget.currentUserId)
+            .collection('userPosts')
+            .doc(widget.postId)
             .update({
-          'bio': bioController.text,
-          'displayName': displayNameController.text,
+          'description': captionController.text,
+          'location': locationController.text,
         });
 
-        final snackBar = SnackBar(content: Text("Profile updated!"));
+        final snackBar = SnackBar(content: Text("Post updated!"));
         ScaffoldMessenger.of(context).showSnackBar(snackBar);
       }
     }
   }
 
-  Future<void> logout() async {
-    // await googleSignIn.signOut();
-    Navigator.push(context, MaterialPageRoute(builder: (context) => Home()));
-  }
+ Future<void> delete() async {
+  await postsRef
+    .doc(widget.currentUserId)
+    .collection('userPosts')
+    .doc(widget.postId)
+    .delete();
+     final snackBar = SnackBar(content: Text("Post deleted!"));
+        ScaffoldMessenger.of(context).showSnackBar(snackBar);
+}
+
 
   void handleTakePhoto() async {
     Navigator.pop(context);
@@ -216,7 +225,7 @@ class _EditProfileState extends State<EditProfile> {
       context: context,
       builder: (BuildContext context) {
         return SimpleDialog(
-          title: const Text('Edit Profile Photo'),
+          title: const Text('Edit Post Photo'),
           children: <Widget>[
             SimpleDialogOption(
               padding: const EdgeInsets.all(20),
@@ -248,7 +257,7 @@ class _EditProfileState extends State<EditProfile> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         title: Text(
-          "Edit Profile",
+          "Edit Post",
           style: TextStyle(
             color: Colors.black,
           ),
@@ -285,7 +294,7 @@ class _EditProfileState extends State<EditProfile> {
                             : Container(
                                 decoration: BoxDecoration(
                                   image: DecorationImage(
-                                    image: CachedNetworkImageProvider(user.photoUrl),
+                                    image: CachedNetworkImageProvider(postDocument['mediaUrl']),
                                     fit: BoxFit.cover,
                                   ),
                                 ),
@@ -298,15 +307,15 @@ class _EditProfileState extends State<EditProfile> {
                   padding: EdgeInsets.all(16),
                   child: Column(
                     children: <Widget>[
-                      buildDisplayNameField(),
-                      buildBioField(),
+                      buildCaptionField(),
+                      buildLocationField(),
                     ],
                   ),
                 ),
                 ElevatedButton(
-                  onPressed: updateProfileData,
+                  onPressed: updatePostData,
                   child: Text(
-                    "Update Profile",
+                    "Update Post",
                     style: TextStyle(
                       color: Theme.of(context).primaryColor,
                       fontSize: 20.0,
@@ -317,10 +326,10 @@ class _EditProfileState extends State<EditProfile> {
                 Padding(
                   padding: EdgeInsets.all(16.0),
                   child: ElevatedButton.icon(
-                    onPressed: logout,
+                    onPressed: delete,
                     icon: Icon(Icons.cancel, color: Colors.red),
                     label: Text(
-                      "Logout",
+                      "Delete Post",
                       style: TextStyle(color: Colors.red, fontSize: 20.0),
                     ),
                   ),

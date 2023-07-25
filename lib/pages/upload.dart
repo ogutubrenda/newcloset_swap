@@ -1,16 +1,13 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
 import 'package:betterclosetswap/pages/home.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:betterclosetswap/models/user.dart';
 import 'package:betterclosetswap/widgets/progress.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
-import 'package:geolocator/geolocator.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:image/image.dart' as Im;
@@ -18,18 +15,18 @@ import 'package:uuid/uuid.dart';
 class Upload extends StatefulWidget {
   final User currentUser;
   //const Upload({super.key});
-  Upload({required this.currentUser});
+  const Upload({super.key, required this.currentUser});
 
   @override
   State<Upload> createState() => _UploadState();
 }
 
-class _UploadState extends State<Upload> {
+class _UploadState extends State<Upload> with AutomaticKeepAliveClientMixin {
   TextEditingController locationController = TextEditingController();
   TextEditingController captionController = TextEditingController();
   Uint8List? _file;
   bool isUploading = false;
-  String postId = Uuid().v4();
+  String postId = const Uuid().v4();
 
   
   pickImage(ImageSource source) async {
@@ -85,9 +82,9 @@ class _UploadState extends State<Upload> {
       child: Column (
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          //SvgPicture.asset('assets\image2vector.svg'),
+          SvgPicture.asset('assets\image2vector.svg'),
           Padding(
-            padding: EdgeInsets.only(top:20.0),
+            padding: const EdgeInsets.only(top:20.0),
              
           child: ElevatedButton(
   onPressed: ()=> selectImage(context),
@@ -97,7 +94,7 @@ class _UploadState extends State<Upload> {
       borderRadius: BorderRadius.circular(8.0),
     ),
   ),
-  child: Text(
+  child: const Text(
     "Add Post", 
     style: TextStyle(
       color: Colors.white,
@@ -176,7 +173,7 @@ handleSubmit() async {
   setState((){
     _file = null;
     isUploading = false;
-    postId = Uuid().v4();
+    postId = const Uuid().v4();
   });
 }
 
@@ -184,10 +181,10 @@ handleSubmit() async {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: clearImage,
         ),
-        title: Text("Caption Post",
+        title: const Text("Caption Post",
         style: TextStyle(color: Colors.black,
         
         ),
@@ -196,7 +193,7 @@ handleSubmit() async {
         actions: [
           ElevatedButton(
             onPressed: isUploading ? null : () => handleSubmit(),
-            child: Text(
+            child: const Text(
               "Post",
               style: TextStyle(color:Colors.blueAccent,
               fontWeight: FontWeight.bold,
@@ -209,7 +206,7 @@ handleSubmit() async {
       ),
       body: ListView(
   children: <Widget>[
-    isUploading? LinearProgress() : Text(""),
+    isUploading? LinearProgress() : const Text(""),
     Container(
       height: 220.0,
       width: MediaQuery.of(context).size.width * 0.8,
@@ -225,17 +222,17 @@ handleSubmit() async {
           ))
       )
     ),
-    Padding(
+    const Padding(
       padding: EdgeInsets.only(top: 10.0)),
       ListTile(
         leading: CircleAvatar(
           backgroundImage: CachedNetworkImageProvider(widget.currentUser.photoUrl),
         ),
-        title: Container(
+        title: SizedBox(
           width: 250.0,
           child: TextField(
             controller: captionController,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               hintText: "Write your caption...",
               border: InputBorder.none,
               ),
@@ -243,14 +240,14 @@ handleSubmit() async {
           ),
         ),
         ),
-        Divider(),
+        const Divider(),
         ListTile(
           leading: Icon(Icons.pin_drop, color: Colors.amber.shade300, size: 35.0,),
-          title: Container(
+          title: SizedBox(
             width: 250.0,
             child: TextField(
               controller: locationController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: "Enter the location",
                 border: InputBorder.none,
               )
@@ -262,7 +259,7 @@ handleSubmit() async {
   height: 100.0,
   alignment: Alignment.center,
   child: ElevatedButton.icon(
-    label: Text(
+    label: const Text(
       "Use your current location",
       style: TextStyle(
         color: Colors.white,
@@ -271,11 +268,10 @@ handleSubmit() async {
     style: ElevatedButton.styleFrom(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(30.0),
-      ),
-      primary: Colors.indigo.shade900,
+      ), backgroundColor: Colors.indigo.shade900,
     ),
     onPressed: () => getUserLocation,
-    icon: Icon(
+    icon: const Icon(
       Icons.my_location,
       color: Colors.white,
     ),
@@ -291,7 +287,6 @@ handleSubmit() async {
 
 
 getUserLocation() async {
-  Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
   //List<Placemark> placemarks = await Geolocator().placemarkFromCoordinates(position.latitude, position.longitude);
  // Placemark placemark = placemarks[0];
   //String completeAddress = placemark.name! + ", " + placemark.subLocality! + ", " + placemark.locality! + ", " + placemark.administrativeArea! + ", " + placemark.country!;
@@ -300,9 +295,12 @@ getUserLocation() async {
   //print(formattedAddress);
 }
 
+@override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return _file == null ? buildSplashScreen(): buildUploadFom();
   }
 }

@@ -5,38 +5,27 @@ import 'package:betterclosetswap/pages/edit_profile.dart';
 import 'package:betterclosetswap/pages/home.dart';
 import 'package:betterclosetswap/widgets/progress.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:betterclosetswap/widgets/post.dart';
 import 'package:betterclosetswap/widgets/header.dart';
-
 class Profile extends StatefulWidget {
   final String profileId;
 
   Profile({required this.profileId});
 
   @override
-  State<Profile> createState() => _ProfileState();
+  _ProfileState createState() => _ProfileState();
 }
 
 class _ProfileState extends State<Profile> {
+  bool isFollowing = false;
   final String currentUserId = currentUser!.id;
-  bool isLoading = false;
-  int postCount = 0;
-  List<Posts> posts = [];
 
-  @override
-  void initState() {
-    super.initState();
-    getProfilePosts();
-  }
 
   Future<void> getProfilePosts() async {
     setState(() {
       isLoading = true;
     });
-
-    QuerySnapshot<Map<String, dynamic>> snapshot = await postsRef
+    QuerySnapshot snapshot = await postsRef
         .doc(widget.profileId)
         .collection('userPosts')
         .orderBy('timestamp', descending: true)
@@ -44,10 +33,8 @@ class _ProfileState extends State<Profile> {
 
     setState(() {
       isLoading = false;
-      postCount = snapshot.size;
-      posts = snapshot.docs
-          .map((document) => Posts.fromDocument(document))
-          .toList();
+      postCount = snapshot.docs.length;
+      posts = snapshot.docs.map((document) => Posts.fromDocument(document)).toList();
     });
   }
 
@@ -76,10 +63,7 @@ class _ProfileState extends State<Profile> {
   }
 
   void editProfile() {
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => EditProfile(currentUserId: currentUserId)));
+    Navigator.push(context, MaterialPageRoute(builder: (context) => EditProfile(currentUserId: currentUserId)));
   }
 
   Container buildButton({required String text, required Function function}) {
@@ -99,12 +83,11 @@ class _ProfileState extends State<Profile> {
           ),
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: Colors.blue,
-            border: Border.all(
               color: Colors.blue,
-            ),
-            borderRadius: BorderRadius.circular(5.0),
-          ),
+              border: Border.all(
+                color: Colors.blue,
+              ),
+              borderRadius: BorderRadius.circular(5.0)),
         ),
       ),
     );
@@ -118,12 +101,12 @@ class _ProfileState extends State<Profile> {
         function: editProfile,
       );
     } else {
-      return Container();
+      return SizedBox.shrink();
     }
   }
 
   Widget buildProfileHeader() {
-    return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+    return FutureBuilder(
       future: usersRef.doc(widget.profileId).get(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
@@ -133,7 +116,7 @@ class _ProfileState extends State<Profile> {
         User user = User.fromDocument(snapshot.data!);
 
         return Padding(
-          padding: EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             children: <Widget>[
               Row(
@@ -151,9 +134,9 @@ class _ProfileState extends State<Profile> {
                           mainAxisSize: MainAxisSize.max,
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: <Widget>[
-                            buildCountColumn("posts", postCount),
-                            buildCountColumn("followers", 0),
-                            buildCountColumn("following", 0),
+                            buildCountColumn("Posts", postCount),
+                            buildCountColumn("Followers", 0),
+                            buildCountColumn("Following", 0),
                           ],
                         ),
                         Row(
@@ -169,10 +152,20 @@ class _ProfileState extends State<Profile> {
               ),
               Container(
                 alignment: Alignment.centerLeft,
-                padding: EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  user.username,
-                  style: TextStyle(
+                   user.username,
+                   style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16.0,
+                   ))
+              ),
+              Container(
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Text(
+                   user.displayName,
+                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16.0,
                   ),
@@ -180,41 +173,24 @@ class _ProfileState extends State<Profile> {
               ),
               Container(
                 alignment: Alignment.centerLeft,
-                padding: EdgeInsets.only(top: 4.0),
+                padding: const EdgeInsets.only(top: 2.0),
                 child: Text(
-                  user.displayName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16.0,
-                  ),
-                ),
+                   user.bio,
+                   )
               ),
-              Container(
-                alignment: Alignment.centerLeft,
-                padding: EdgeInsets.only(top: 2.0),
-                child: Text(user.bio),
-              ),
-            ],
-          ),
+              ]
+            ),
         );
       },
     );
   }
 
   Widget buildProfilePosts() {
-  if (isLoading) {
-    return CircularProgress();
-  } else {
+    if (isLoading) {
+      return CircularProgress();
+    }
     return Column(
-      children: posts.map((post) => Posts(
-        postId: post.postId,
-        ownerId: post.ownerId,
-        username: post.username,
-        location: post.location,
-        description: post.description,
-        mediaUrl: post.mediaUrl,
-        likes: post.likes,
-      )).toList(),
+      children: posts,
     );
   }
 }
@@ -232,10 +208,7 @@ class _ProfileState extends State<Profile> {
       body: ListView(
         children: <Widget>[
           buildProfileHeader(),
-          Divider(
-            height: 0.0,
-          ),
-          buildProfilePosts(),
+
         ],
       ),
     );

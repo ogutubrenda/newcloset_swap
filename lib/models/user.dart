@@ -29,5 +29,7 @@ factory User.fromDocument(DocumentSnapshot document){
   );
 
 }
+
+  get userId => null;
 }
 

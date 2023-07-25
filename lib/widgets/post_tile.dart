@@ -1,31 +1,31 @@
+import 'package:betterclosetswap/widgets/custom_image.dart';
+import 'package:betterclosetswap/widgets/post.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
-class User {
-  late final String id;
-  late final String username;
-  late final String email;
-  late final String photoUrl;
-  late final String displayName;
-  late final String bio;
+import '../pages/post_screen.dart';
 
-  User({
-    required this.id,
-    required this.username,
-    required this.email,
-    required this.photoUrl,
-    required this.displayName,
-    required this.bio,
-  });
-  factory User.fromDocument(DocumentSnapshot document){
-    return User(
-      id:  document['id'],
-      email: document['email'],
-      username: document['username'],
-      photoUrl: document['photoUrl'],
-      displayName: document['displayName'],
-      bio: document['bio'],
+class PostTile extends StatelessWidget {
+  final Post post;
 
+  PostTile(this.post);
+
+  void showPost(BuildContext context, {String? postId, String? userId}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PostScreen(
+          postId: postId!,
+          userid: userId!, 
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => showPost(context, postId: post.postId, userId: post.ownerId),
+      child: cachedNetworkImage(post.photoUrl),
     );
   }
 }
